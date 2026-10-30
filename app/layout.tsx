@@ -12,12 +12,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Set NEXT_PUBLIC_SITE_URL to the production domain once there is one.
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : "http://localhost:3000");
+// NEXT_PUBLIC_SITE_URL overrides this, e.g. once a custom domain is added.
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://boda-bora.vercel.app";
 
 const description =
   "Phone-only telematics that turns real boda riding behaviour into a Rider Safety Score, so careful riders get insurance they can actually afford.";
