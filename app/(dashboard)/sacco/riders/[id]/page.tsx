@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CoverageBars, RouteMap } from "@/components/charts";
 import { Badge, Button, Card, CardTitle, PageHeader, ScoreBar, ScoreGauge, Sparkline, Stat, scoreTone } from "@/components/ui";
@@ -5,6 +6,12 @@ import { coachingMessage, getRider, riders, riskEvents, shiftCoverage, subScoreL
 
 export function generateStaticParams() {
   return riders.map((r) => ({ id: r.id }));
+}
+
+export async function generateMetadata({ params }: PageProps<"/sacco/riders/[id]">): Promise<Metadata> {
+  const { id } = await params;
+  const rider = getRider(id);
+  return { title: rider ? `${rider.name} · SACCO` : "Rider not found" };
 }
 
 export default async function RiderDetailPage({ params }: PageProps<"/sacco/riders/[id]">) {

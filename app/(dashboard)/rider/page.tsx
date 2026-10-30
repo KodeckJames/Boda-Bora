@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PhoneFrame } from "@/components/phone-frame";
 import { Badge, Card, CardTitle, ScoreBar, ScoreGauge, Sparkline, scoreTone } from "@/components/ui";
 import { coachingMessage, currentRider, recentTrips, subScoreLabels, type SubScores } from "@/lib/mock-data";
+
+export const metadata: Metadata = { title: "Rider app" };
 
 export default function RiderAppPage() {
   const rider = currentRider;

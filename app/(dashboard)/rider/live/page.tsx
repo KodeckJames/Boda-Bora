@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { Button, PageHeader } from "@/components/ui";
 import { LiveDemo } from "./live-demo";
+
+export const metadata: Metadata = { title: "Live sensor demo" };
 
 export default function LivePage() {
   return (

@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { RiskHeatmap, RouteMap } from "@/components/charts";
 import { Badge, Card, CardTitle, PageHeader, ScoreGauge, ScoreBar, Button } from "@/components/ui";
 import { coachingMessage, currentRider, hourlyRisk, riskEvents, subScoreLabels, type SubScores } from "@/lib/mock-data";
+
+export const metadata: Metadata = { title: "Week trace" };
 
 const severityTone = { low: "warn", medium: "warn", high: "danger" } as const;
 

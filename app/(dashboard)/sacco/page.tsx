@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge, Button, Card, CardTitle, CoverageMeter, PageHeader, Sparkline, Stat, scoreTone } from "@/components/ui";
 import { fleetStats, riders } from "@/lib/mock-data";
+
+export const metadata: Metadata = { title: "SACCO fleet" };
 
 export default function SaccoPage() {
   const flagged = riders.filter((r) => r.flags.length > 0);

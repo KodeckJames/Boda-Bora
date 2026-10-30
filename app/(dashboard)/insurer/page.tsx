@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { Histogram } from "@/components/charts";
 import { Badge, Button, Card, CardTitle, CoverageMeter, PageHeader, Stat, scoreTone } from "@/components/ui";
 import { insurerTiers, quoteQueue, scoreDistribution } from "@/lib/mock-data";
+
+export const metadata: Metadata = { title: "Insurer portal" };
 
 const statusTone = { Eligible: "safe", "Low confidence": "danger", Refer: "warn" } as const;
 

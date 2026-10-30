@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { Card, PageHeader } from "@/components/ui";
 import { UssdPhone } from "./ussd-phone";
+
+export const metadata: Metadata = { title: "USSD access" };
 
 const notes = [
   { title: "No smartphone needed", body: "Any SIM, any handset. The score follows the rider's phone number, not the device." },
