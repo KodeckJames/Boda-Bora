@@ -1,7 +1,8 @@
-import { app } from "./app.ts";
-import { config } from "./config.ts";
+import app from './app'
+import { env } from './env'
 
-app.listen(config.port, (error) => {
-  if (error) throw error;
-  console.log(`Boda Bora API listening on http://localhost:${config.port}`);
-});
+// Bun entry point. Neon Functions run Node 24, so deployment will get its own entry later.
+export default {
+  port: env.PORT,
+  fetch: app.fetch,
+}

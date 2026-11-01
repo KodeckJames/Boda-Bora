@@ -1,24 +1,21 @@
 {
   "name": "bodabora-backend",
-  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --watch src/index.ts",
+    "dev": "bun run --hot src/index.ts",
     "start": "bun src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "routes": "hono routes src/app.ts"
   },
   "dependencies": {
-    "cors": "^2.8.6",
-    "express": "^5.3.0",
-    "helmet": "^8.3.0",
-    "morgan": "^1.12.1"
+    "@hono/zod-validator": "^0.9.1",
+    "hono": "^4.13.16",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/bun": "^1.4.4",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/morgan": "^1.9.10",
+    "@hono/cli": "^1.0.0-rc.8",
+    "@types/bun": "latest",
     "typescript": "^7.0.2"
   }
 }

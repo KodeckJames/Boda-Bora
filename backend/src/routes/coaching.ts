@@ -1,9 +1,8 @@
-import { Router } from "express";
-import { notImplemented } from "../middleware/errors.ts";
+import { Hono } from 'hono'
+import { notImplemented } from '../lib/errors'
 
 // Gemini-generated Kiswahili coaching messages.
-export const coachingRouter = Router();
-
-coachingRouter.get("/:riderId", notImplemented); // latest coaching message
-coachingRouter.post("/:riderId/generate", notImplemented); // regenerate from this week's trace
-coachingRouter.post("/:riderId/send", notImplemented); // send via SMS
+export const coaching = new Hono()
+  .get('/:riderId', notImplemented) // latest coaching message
+  .post('/:riderId/generate', notImplemented) // regenerate from this week's trace
+  .post('/:riderId/send', notImplemented) // send via SMS

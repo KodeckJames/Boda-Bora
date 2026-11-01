@@ -1,27 +1,37 @@
-import cors from "cors";
-import express from "express";
-import helmet from "helmet";
-import morgan from "morgan";
-import { config, isProd } from "./config.ts";
-import { errorHandler, notFound } from "./middleware/errors.ts";
-import { apiRouter } from "./routes/index.ts";
-import { ussdRouter } from "./routes/ussd.ts";
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+import { logger } from 'hono/logger'
+import { secureHeaders } from 'hono/secure-headers'
+import { env } from './env'
+import { notFound, onError } from './lib/errors'
+import { coaching } from './routes/coaching'
+import { health } from './routes/health'
+import { insurer } from './routes/insurer'
+import { riders } from './routes/riders'
+import { sacco } from './routes/sacco'
+import { trips } from './routes/trips'
+import { ussd } from './routes/ussd'
 
-export const app = express();
+const app = new Hono()
 
-app.disable("x-powered-by");
-app.use(helmet());
-app.use(cors({ origin: config.corsOrigins }));
-app.use(morgan(isProd ? "combined" : "dev"));
-app.use(express.json({ limit: "5mb" })); // trip batches can be large
-app.use(express.urlencoded({ extended: false })); // USSD gateways post form data
+app.use(logger())
+app.use(secureHeaders())
+app.use('/api/*', cors({ origin: env.CORS_ORIGINS }))
 
-app.get("/", (_req, res) => {
-  res.json({ name: "Boda Bora API", docs: "/api/health" });
-});
+app.get('/', (c) => c.json({ name: 'Boda Bora API', docs: '/api/health' }))
 
-app.use("/api", apiRouter);
-app.use("/ussd", ussdRouter);
+// Chained so the route types flow to the frontend's typed client (hc<AppType>).
+const routes = app
+  .route('/api/health', health)
+  .route('/api/riders', riders)
+  .route('/api/trips', trips)
+  .route('/api/coaching', coaching)
+  .route('/api/sacco', sacco)
+  .route('/api/insurer', insurer)
+  .route('/ussd', ussd)
 
-app.use(notFound);
-app.use(errorHandler);
+app.notFound(notFound)
+app.onError(onError)
+
+export type AppType = typeof routes
+export default app

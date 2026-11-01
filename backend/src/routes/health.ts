@@ -1,8 +1,6 @@
-import { Router } from "express";
-import { config } from "../config.ts";
+import { Hono } from 'hono'
+import { env } from '../env'
 
-export const healthRouter = Router();
-
-healthRouter.get("/", (_req, res) => {
-  res.json({ status: "ok", env: config.env, uptime: process.uptime() });
-});
+export const health = new Hono().get('/', (c) =>
+  c.json({ status: 'ok', env: env.NODE_ENV, uptime: process.uptime() }),
+)

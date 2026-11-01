@@ -1,10 +1,9 @@
-import { Router } from "express";
-import { notImplemented } from "../middleware/errors.ts";
+import { Hono } from 'hono'
+import { notImplemented } from '../lib/errors'
 
-// Underwriting: tiers, score distribution, quote requests.
-export const insurerRouter = Router();
-
-insurerRouter.get("/tiers", notImplemented);
-insurerRouter.get("/distribution", notImplemented);
-insurerRouter.get("/quotes", notImplemented);
-insurerRouter.post("/quotes/:quoteId/decision", notImplemented);
+// Underwriting: tiers, score distribution, quote requests (consented riders only).
+export const insurer = new Hono()
+  .get('/tiers', notImplemented)
+  .get('/distribution', notImplemented)
+  .get('/quotes', notImplemented)
+  .post('/quotes/:quoteId/decision', notImplemented)

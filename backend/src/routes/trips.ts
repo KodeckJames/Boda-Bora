@@ -1,8 +1,8 @@
-import { Router } from "express";
-import { notImplemented } from "../middleware/errors.ts";
+import { Hono } from 'hono'
+import { notImplemented } from '../lib/errors'
 
-// Sensor trace ingestion from the phone app (batched, uploaded over WiFi at night).
-export const tripsRouter = Router();
-
-tripsRouter.post("/batch", notImplemented); // upload a batch of trip traces
-tripsRouter.get("/:id", notImplemented); // single trip detail
+// Trace ingestion from the phone app. Phones upload batches straight to object storage
+// with a presigned URL; processing runs in the separate `ingest` function.
+export const trips = new Hono()
+  .post('/uploads', notImplemented) // presigned upload URL for a trace batch
+  .get('/:id', notImplemented) // single trip detail
