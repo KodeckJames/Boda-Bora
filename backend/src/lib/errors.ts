@@ -6,7 +6,7 @@ export const notFound: NotFoundHandler = (c) =>
   c.json({ error: `Route not found: ${c.req.method} ${c.req.path}` }, 404)
 
 export const onError: ErrorHandler = (err, c) => {
-  if (err instanceof HTTPException) return err.getResponse()
+  if (err instanceof HTTPException) return c.json({ error: err.message }, err.status)
   console.error(err)
   return c.json({ error: isProd ? 'Internal server error' : err.message }, 500)
 }
