@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PhoneFrame } from "@/components/phone-frame";
+import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { Badge, Card, CardTitle, ScoreBar, ScoreGauge, Sparkline, scoreTone } from "@/components/ui";
 import { coachingMessage, currentRider, recentTrips, subScoreLabels, type SubScores } from "@/lib/mock-data";
 
@@ -17,8 +18,15 @@ export default function RiderAppPage() {
               <p className="text-xs text-muted">Habari,</p>
               <p className="font-semibold">{rider.name.split(" ")[0]}</p>
             </div>
-            <Badge tone="safe">● Recording</Badge>
+            <Link
+              href="/rider/ride"
+              className="rounded-full bg-hivis px-4 py-2 text-sm font-bold text-ink"
+            >
+              Anza kazi
+            </Link>
           </div>
+
+          <InstallPrompt />
 
           <div className="rounded-2xl bg-surface p-4 shadow-sm">
             <div className="flex justify-center">
