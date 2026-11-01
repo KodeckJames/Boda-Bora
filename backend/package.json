@@ -6,16 +6,34 @@
     "dev": "bun run --hot src/index.ts",
     "start": "bun src/index.ts",
     "typecheck": "tsc --noEmit",
-    "routes": "hono routes src/app.ts"
+    "routes": "hono routes src/app.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "deploy": "neon deploy --env .env"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1161.0",
+    "@aws-sdk/s3-presigned-post": "^3.1161.0",
+    "@aws-sdk/s3-request-presigner": "^3.1161.0",
     "@hono/zod-validator": "^0.9.1",
+    "@neon/config": "^1.10.0",
+    "@neon/env": "^1.6.8",
+    "@neon/functions": "^0.11.0",
+    "@neon/realtime": "^0.1.2",
+    "@neon/realtime-drizzle": "^0.1.0",
+    "drizzle-orm": "^0.45.4",
+    "files-sdk": "^3.1.2",
     "hono": "^4.13.16",
+    "jose": "^6.2.14",
+    "pg": "^8.23.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@hono/cli": "^1.0.0-rc.8",
     "@types/bun": "latest",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11",
     "typescript": "^7.0.2"
   }
 }
