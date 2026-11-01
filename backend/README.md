@@ -10,6 +10,24 @@ bun run typecheck
 bun run routes         # list routes with Hono CLI
 ```
 
+## Neon
+
+Deployed as the `api` Neon Function (Frankfurt), declared in [neon.ts](neon.ts). Get its URL with `neon functions get api` (`invocation_url`).
+
+```bash
+bun run deploy         # neon deploy --env .env: applies neon.ts, deploys the function, pulls env
+bun run db:generate    # create a migration from src/db/schema.ts
+bun run db:migrate     # apply migrations (uses DATABASE_URL_UNPOOLED)
+```
+
+| Service | Wired in | Notes |
+|---|---|---|
+| Postgres | `src/db/` (Drizzle + `pg` pool) | `GET /api/health/db`, `GET /api/riders` |
+| Auth (Managed Better Auth) | `src/lib/auth.ts` | `requireUser` verifies the JWT against `NEON_AUTH_JWKS_URL` |
+| Object Storage | `src/lib/storage.ts` (Files SDK, bucket `traces`) | `POST /api/trips/uploads` returns a presigned PUT URL |
+| Realtime | `src/lib/realtime.ts` | `POST /api/riders/live` returns a sealed live query |
+| AI Gateway | `src/lib/ai.ts` | Commented out in `neon.ts` until the org is on a paid plan |
+
 Test requests without starting a server:
 
 ```bash
