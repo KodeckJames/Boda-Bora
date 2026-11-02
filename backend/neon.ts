@@ -15,6 +15,7 @@ export default defineConfig({
       env: {
         NODE_ENV: "production",
         CORS_ORIGINS: process.env.CORS_ORIGINS!,
+        ADMIN_EMAILS: process.env.ADMIN_EMAILS!,
         // Realtime credentials aren't injected into Functions and NEON_* is reserved, so rename.
         REALTIME_SECRET: process.env.NEON_REALTIME_SECRET!,
       },

@@ -1,18 +1,21 @@
-import { zValidator } from '@hono/zod-validator'
+import { validate } from '../lib/validate'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { chat } from '../lib/ai'
-import { requireUser, type AuthEnv } from '../lib/auth'
+import { requireRole, withAccess, type AccessEnv } from '../lib/access'
+import { requireUser } from '../lib/auth'
 import { notImplemented } from '../lib/errors'
 
 // Gemini-generated Kiswahili coaching messages.
-export const coaching = new Hono<AuthEnv>()
+export const coaching = new Hono<AccessEnv>()
   .get('/:riderId', notImplemented) // latest coaching message
   // Regenerate from this week's trace. TODO: build the fact pack from the rider's scores.
   .post(
     '/:riderId/generate',
     requireUser,
-    zValidator('json', z.object({ facts: z.string().min(1).max(2000) })),
+    withAccess,
+    requireRole('admin'),
+    validate('json', z.object({ facts: z.string().min(1).max(2000) })),
     async (c) => {
       const { facts } = c.req.valid('json')
       const message = await chat([

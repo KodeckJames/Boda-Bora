@@ -1,4 +1,4 @@
-import { zValidator } from '@hono/zod-validator'
+import { validate } from '../lib/validate'
 import { Hono } from 'hono'
 import { z } from 'zod'
 
@@ -12,7 +12,7 @@ const ussdRequest = z.object({
   text: z.string().default(''),
 })
 
-export const ussd = new Hono().post('/', zValidator('form', ussdRequest), (c) => {
+export const ussd = new Hono().post('/', validate('form', ussdRequest), (c) => {
   const { text } = c.req.valid('form')
   // TODO: check USSD_CALLBACK_TOKEN, look up the rider by phoneNumber, route menu choices.
   const reply =

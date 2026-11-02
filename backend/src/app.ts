@@ -4,7 +4,9 @@ import { logger } from 'hono/logger'
 import { secureHeaders } from 'hono/secure-headers'
 import { env } from './env'
 import { notFound, onError } from './lib/errors'
+import { admin } from './routes/admin'
 import { coaching } from './routes/coaching'
+import { me } from './routes/me'
 import { health } from './routes/health'
 import { insurer } from './routes/insurer'
 import { riders } from './routes/riders'
@@ -23,6 +25,8 @@ app.get('/', (c) => c.json({ name: 'Boda Bora API', docs: '/api/health' }))
 // Chained so the route types flow to the frontend's typed client (hc<AppType>).
 const routes = app
   .route('/api/health', health)
+  .route('/api/me', me)
+  .route('/api/admin', admin)
   .route('/api/riders', riders)
   .route('/api/trips', trips)
   .route('/api/coaching', coaching)

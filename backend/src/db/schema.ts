@@ -86,6 +86,25 @@ export const memberships = pgTable(
   ],
 )
 
+// Pending role grants. Applied on sign-in when the user's *verified* email matches, which is
+// how SACCO staff, insurer staff and SACCO-registered riders get linked to their Google account.
+export const invites = pgTable(
+  'invites',
+  {
+    id: id(),
+    email: text('email').notNull(), // stored lowercase
+    role: userRole('role').notNull(),
+    sacco_id: uuid('sacco_id').references(() => saccos.id, { onDelete: 'cascade' }),
+    insurer_id: uuid('insurer_id').references(() => insurers.id, { onDelete: 'cascade' }),
+    rider_id: uuid('rider_id'), // for rider invites: the rider record the SACCO created
+    invited_by: text('invited_by').notNull(),
+    accepted_by: text('accepted_by'),
+    accepted_at: timestamp('accepted_at', { withTimezone: true }),
+    created_at: createdAt(),
+  },
+  (t) => [index('invites_email_idx').on(t.email)],
+)
+
 // A rider can be registered by their SACCO before they sign in; user_id links them later.
 export const riders = pgTable(
   'riders',

@@ -11,6 +11,11 @@ const schema = z.object({
     .string()
     .default('http://localhost:3000')
     .transform((s) => s.split(',').map((o) => o.trim()).filter(Boolean)),
+  // Comma-separated verified emails that get the admin role on sign-in.
+  ADMIN_EMAILS: z
+    .string()
+    .default('')
+    .transform((s) => s.split(',').map((e) => e.trim()).filter(Boolean)),
   // Neon-managed: injected in deployed Functions, pulled into .env locally by `neon deploy`.
   DATABASE_URL: optional,
   NEON_AUTH_BASE_URL: optional,
