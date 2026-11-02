@@ -7,22 +7,9 @@ import { requireUser, type AuthEnv } from '../lib/auth'
 import { notImplemented } from '../lib/errors'
 import { realtime } from '../lib/realtime'
 
+// Schema keys match column names, so the same query works for REST and Realtime.
 const ridersList = () =>
-  db.select().from(ridersTable).orderBy(desc(ridersTable.createdAt)).limit(100)
-
-// Realtime requires each selected key to match its column name, so live queries use snake_case keys.
-const ridersLive = () =>
-  db
-    .select({
-      id: ridersTable.id,
-      name: ridersTable.name,
-      phone: ridersTable.phone,
-      sacco_id: ridersTable.saccoId,
-      created_at: ridersTable.createdAt,
-    })
-    .from(ridersTable)
-    .orderBy(desc(ridersTable.createdAt))
-    .limit(100)
+  db.select().from(ridersTable).orderBy(desc(ridersTable.created_at)).limit(100)
 
 // Rider profiles, scores and weekly traces.
 export const riders = new Hono<AuthEnv>()
@@ -32,7 +19,7 @@ export const riders = new Hono<AuthEnv>()
   // TODO: scope to the caller's SACCO once memberships exist.
   .post('/live', requireUser, async (c) => {
     if (!realtime) throw new HTTPException(503, { message: 'Realtime is not configured' })
-    return c.json(await realtime.seal({ query: ridersLive() }))
+    return c.json(await realtime.seal({ query: ridersList() }))
   })
   .get('/:id', notImplemented) // rider profile
   .get('/:id/score', notImplemented) // current Rider Safety Score + sub-scores + coverage confidence
