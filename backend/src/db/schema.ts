@@ -1,7 +1,8 @@
 import { sql } from 'drizzle-orm'
+import { lineString4326, point4326 } from './geo-types'
 import {
   date,
-  geometry,
+
   index,
   integer,
   jsonb,
@@ -19,7 +20,7 @@ import {
 
 const id = () => uuid('id').primaryKey().defaultRandom()
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
-const point = (name: string) => geometry(name, { type: 'point', mode: 'xy', srid: 4326 })
+const point = (name: string) => point4326(name)
 
 export const userRole = pgEnum('user_role', ['rider', 'sacco_admin', 'insurer_analyst', 'admin'])
 export const batchStatus = pgEnum('batch_status', ['received', 'processing', 'processed', 'failed'])
@@ -192,7 +193,7 @@ export const trips = pgTable(
     night_m: real('night_m').notNull().default(0), // distance ridden 19:00–06:00 EAT
     blackspot_m: real('blackspot_m').notNull().default(0), // distance inside blackspot radii
     max_speed_kmh: real('max_speed_kmh'),
-    path: geometry('path', { type: 'linestring', srid: 4326 }), // simplified route for maps
+    path: lineString4326('path'), // simplified route for maps
     score: real('score'),
     created_at: createdAt(),
   },

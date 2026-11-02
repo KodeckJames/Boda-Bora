@@ -20,10 +20,25 @@ export default defineConfig({
         REALTIME_SECRET: process.env.NEON_REALTIME_SECRET!,
       },
     },
+    // Processes uploaded trace batches (storage trigger below).
+    ingest: {
+      name: "Boda Bora ingest",
+      source: "./src/functions/ingest.ts",
+      env: { NODE_ENV: "production" },
+    },
   },
   buckets: {
     // Raw sensor trace batches uploaded by the rider app.
     traces: { access: "private" },
+  },
+  triggers: {
+    // Each uploaded ride-mode batch is processed into trips and risk events.
+    "trace-uploaded": {
+      type: "storage_object_created",
+      function: "ingest",
+      bucket: "traces",
+      prefix: "batches/",
+    },
   },
   // Branch policy: per-branch tuning
   branch: (branch) => {
