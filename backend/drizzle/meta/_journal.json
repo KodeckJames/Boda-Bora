@@ -36,6 +36,13 @@
       "when": 1793656526529,
       "tag": "0004_geometry_srid",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793983700658,
+      "tag": "0005_coverage_nullable",
+      "breakpoints": true
     }
   ]
 }

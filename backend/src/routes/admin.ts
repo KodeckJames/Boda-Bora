@@ -8,6 +8,7 @@ import { blackspots, insurers, invites, saccos, stages } from '../db/schema'
 import { requireRole, withAccess, type AccessEnv } from '../lib/access'
 import { audit } from '../lib/audit'
 import { requireUser } from '../lib/auth'
+import { scoreRiderWeek } from '../scoring/run'
 
 const lat = z.number().min(-90).max(90)
 const lng = z.number().min(-180).max(180)
@@ -89,6 +90,15 @@ export const admin = new Hono<AccessEnv>()
         .values({ ...rest, location: { x: lo, y: la } })
         .returning()
       return c.json(row, 201)
+    },
+  )
+  // Recompute a rider's weekly score now (the nightly job does this for everyone).
+  .post(
+    '/scores/recompute',
+    validate('json', z.object({ rider_id: z.uuid(), at: z.iso.datetime().optional() })),
+    async (c) => {
+      const { rider_id, at } = c.req.valid('json')
+      return c.json(await scoreRiderWeek(rider_id, at ? Date.parse(at) : Date.now()))
     },
   )
   // Quick integrity check that PostGIS answers, used by deploy smoke tests.

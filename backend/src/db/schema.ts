@@ -233,7 +233,7 @@ const scoreColumns = () => ({
   acceleration: real('acceleration').notNull(),
   night_exposure: real('night_exposure').notNull(),
   route_risk: real('route_risk').notNull(),
-  coverage: real('coverage').notNull(), // share of SACCO shift time with a trace, 0–1
+  coverage: real('coverage'), // share of SACCO shift time with a trace, 0–1; null = no shift records to check against
   confidence: real('confidence').notNull(), // 0–1; below the threshold, insurers don't see it
 })
 

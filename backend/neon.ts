@@ -20,6 +20,12 @@ export default defineConfig({
         REALTIME_SECRET: process.env.NEON_REALTIME_SECRET!,
       },
     },
+    // Scheduled work: nightly scoring (cron triggers below).
+    jobs: {
+      name: "Boda Bora jobs",
+      source: "./src/functions/jobs.ts",
+      env: { NODE_ENV: "production" },
+    },
     // Processes uploaded trace batches (storage trigger below).
     ingest: {
       name: "Boda Bora ingest",
@@ -38,6 +44,13 @@ export default defineConfig({
       function: "ingest",
       bucket: "traces",
       prefix: "batches/",
+    },
+    // 00:30 EAT (UTC+3) every night: weekly scores, coverage and confidence.
+    "nightly-scores": {
+      type: "schedule",
+      function: "jobs",
+      cron: "30 21 * * *",
+      functionPath: "/nightly-scores",
     },
   },
   // Branch policy: per-branch tuning
