@@ -36,6 +36,16 @@ export const SCORING = {
   insurerMinConfidence: 0.6, // insurers only see scores at or above this
 } as const
 
+// Underwriting tiers by score. Pricing per tier is each insurer's own decision.
+export const TIERS = [
+  { tier: 'A', min: 85 },
+  { tier: 'B', min: 70 },
+  { tier: 'C', min: 55 },
+  { tier: 'D', min: 0 },
+] as const
+export type Tier = (typeof TIERS)[number]['tier']
+export const tierOf = (score: number): Tier => TIERS.find((t) => score >= t.min)!.tier
+
 const curve = (rate: number, { r50, p }: { r50: number; p: number }) => 100 / (1 + (Math.max(0, rate) / r50) ** p)
 const round1 = (n: number) => Math.round(n * 10) / 10
 
@@ -67,7 +77,7 @@ export function subScores(rides: RideSummary[], events: EventSummary[]): SubScor
 
 // ---------- Interval helpers ----------
 
-function union(intervals: Interval[]): Interval[] {
+export function union(intervals: Interval[]): Interval[] {
   const sorted = intervals.filter((i) => i.to > i.from).sort((a, b) => a.from - b.from)
   const out: Interval[] = []
   for (const i of sorted) {
@@ -78,9 +88,9 @@ function union(intervals: Interval[]): Interval[] {
   return out
 }
 
-const total = (intervals: Interval[]) => intervals.reduce((s, i) => s + (i.to - i.from), 0)
+export const total = (intervals: Interval[]) => intervals.reduce((s, i) => s + (i.to - i.from), 0)
 
-function intersect(a: Interval[], b: Interval[]): Interval[] {
+export function intersect(a: Interval[], b: Interval[]): Interval[] {
   const out: Interval[] = []
   for (const x of union(a)) {
     for (const y of union(b)) {

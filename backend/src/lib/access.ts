@@ -41,6 +41,14 @@ async function acceptInvites(userId: string, email: string) {
           .set({ user_id: userId })
           .where(and(eq(riders.id, inv.rider_id), isNull(riders.user_id)))
       }
+      // A SACCO inviting a rider who registered on their own: joining happens only when the
+      // rider signs in, so a SACCO can't claim someone's data just by knowing their phone.
+      if (!inv.rider_id && inv.sacco_id && inv.role === 'rider') {
+        await tx
+          .update(riders)
+          .set({ sacco_id: inv.sacco_id })
+          .where(and(eq(riders.user_id, userId), isNull(riders.sacco_id)))
+      }
       await tx
         .update(invites)
         .set({ accepted_by: userId, accepted_at: new Date() })

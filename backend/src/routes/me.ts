@@ -1,14 +1,21 @@
 import { validate } from '../lib/validate'
-import { eq } from 'drizzle-orm'
+import { and, desc, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { z } from 'zod'
 import { db } from '../db/client'
-import { profiles, riders } from '../db/schema'
-import { withAccess, type AccessEnv } from '../lib/access'
+import { consents, insurers, profiles, quote_requests, rider_scores_current, riders } from '../db/schema'
+import { requireRole, withAccess, type Access, type AccessEnv } from '../lib/access'
 import { audit } from '../lib/audit'
 import { requireUser } from '../lib/auth'
+import { activeConsentFor } from '../lib/consent'
 import { kenyanPhone } from '../lib/phone'
+import { tierOf } from '../scoring/model'
+
+const ownRider = (access: Access) => {
+  if (!access.riderId) throw new HTTPException(409, { message: 'Finish rider registration first' })
+  return access.riderId
+}
 
 const riderSignup = z.object({
   name: z.string().trim().min(2).max(100),
@@ -52,4 +59,91 @@ export const me = new Hono<AccessEnv>()
     })
     await audit(userId, 'rider.self_register', 'rider', rider.id)
     return c.json(rider, 201)
+  })
+
+  // ---------- Sharing the score with insurers (rider-controlled) ----------
+
+  .get('/consents', requireRole('rider'), async (c) => {
+    const riderId = ownRider(c.get('access'))
+    return c.json(
+      await db
+        .select({ id: consents.id, insurer_id: consents.insurer_id, insurer_name: insurers.name, granted_at: consents.granted_at, revoked_at: consents.revoked_at })
+        .from(consents)
+        .leftJoin(insurers, eq(insurers.id, consents.insurer_id))
+        .where(eq(consents.rider_id, riderId))
+        .orderBy(desc(consents.granted_at)),
+    )
+  })
+  // insurer_id omitted = share with any partner insurer.
+  .post('/consents', requireRole('rider'), validate('json', z.object({ insurer_id: z.uuid().optional() })), async (c) => {
+    const riderId = ownRider(c.get('access'))
+    const { insurer_id } = c.req.valid('json')
+    if (insurer_id) {
+      const [ins] = await db.select({ id: insurers.id }).from(insurers).where(eq(insurers.id, insurer_id))
+      if (!ins) throw new HTTPException(404, { message: 'Insurer not found' })
+    }
+    const [row] = await db.insert(consents).values({ rider_id: riderId, insurer_id: insurer_id ?? null }).returning()
+    await audit(c.get('user').userId, 'consent.grant', 'rider', riderId, { insurer_id: insurer_id ?? 'any' })
+    return c.json(row, 201)
+  })
+  .delete('/consents/:id', requireRole('rider'), validate('param', z.object({ id: z.uuid() })), async (c) => {
+    const riderId = ownRider(c.get('access'))
+    const [row] = await db
+      .update(consents)
+      .set({ revoked_at: new Date() })
+      .where(and(eq(consents.id, c.req.valid('param').id), eq(consents.rider_id, riderId), isNull(consents.revoked_at)))
+      .returning({ id: consents.id })
+    if (!row) throw new HTTPException(404, { message: 'Active consent not found' })
+    await audit(c.get('user').userId, 'consent.revoke', 'rider', riderId, { consent_id: row.id })
+    return c.json({ ok: true })
+  })
+
+  .get('/quotes', requireRole('rider'), async (c) => {
+    const riderId = ownRider(c.get('access'))
+    return c.json(
+      await db
+        .select({
+          id: quote_requests.id,
+          insurer_id: quote_requests.insurer_id,
+          insurer_name: insurers.name,
+          status: quote_requests.status,
+          premium_ksh: quote_requests.premium_ksh,
+          created_at: quote_requests.created_at,
+          decided_at: quote_requests.decided_at,
+        })
+        .from(quote_requests)
+        .innerJoin(insurers, eq(insurers.id, quote_requests.insurer_id))
+        .where(eq(quote_requests.rider_id, riderId))
+        .orderBy(desc(quote_requests.created_at)),
+    )
+  })
+  // Ask an insurer for a quote. Needs consent for that insurer and a current score, which is
+  // snapshotted so the decision is made on the score the rider saw.
+  .post('/quotes', requireRole('rider'), validate('json', z.object({ insurer_id: z.uuid() })), async (c) => {
+    const riderId = ownRider(c.get('access'))
+    const { insurer_id } = c.req.valid('json')
+    const [consent] = await db.select({ id: consents.id }).from(consents).where(activeConsentFor(riderId, insurer_id))
+    if (!consent) throw new HTTPException(409, { message: 'Share your score with this insurer first' })
+    const [score] = await db.select().from(rider_scores_current).where(eq(rider_scores_current.rider_id, riderId))
+    if (!score) throw new HTTPException(409, { message: 'You need at least one scored week first' })
+    const [pending] = await db
+      .select({ id: quote_requests.id })
+      .from(quote_requests)
+      .where(and(eq(quote_requests.rider_id, riderId), eq(quote_requests.insurer_id, insurer_id), eq(quote_requests.status, 'pending')))
+    if (pending) throw new HTTPException(409, { message: 'You already have a pending request with this insurer' })
+    const snapshot = {
+      week_start: score.week_start,
+      score: score.score,
+      tier: tierOf(score.score),
+      coverage: score.coverage,
+      confidence: score.confidence,
+      braking: score.braking,
+      cornering: score.cornering,
+      acceleration: score.acceleration,
+      night_exposure: score.night_exposure,
+      route_risk: score.route_risk,
+    }
+    const [row] = await db.insert(quote_requests).values({ rider_id: riderId, insurer_id, score_snapshot: snapshot }).returning()
+    await audit(c.get('user').userId, 'quote.request', 'rider', riderId, { insurer_id })
+    return c.json(row, 201)
   })
