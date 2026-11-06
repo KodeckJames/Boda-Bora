@@ -26,12 +26,18 @@ export async function scoreRiderWeek(riderId: string, at: number): Promise<WeekR
   const week_ = subScores(rides, eventRows)
 
   // Each trip's own score, for trip lists and maps (noisier than the weekly score).
-  for (const t of tripRows) {
-    const s = subScores(
-      [{ distanceM: t.distance_m, nightM: t.night_m, blackspotM: t.blackspot_m }],
-      eventRows.filter((e) => e.trip_id === t.id),
+  // One UPDATE for all of the week's trips.
+  if (tripRows.length > 0) {
+    const values = tripRows.map((t) => {
+      const s = subScores(
+        [{ distanceM: t.distance_m, nightM: t.night_m, blackspotM: t.blackspot_m }],
+        eventRows.filter((e) => e.trip_id === t.id),
+      )
+      return sql`(${t.id}::uuid, ${s.score}::real)`
+    })
+    await db.execute(
+      sql`update ${trips} set score = v.score from (values ${sql.join(values, sql`, `)}) as v(id, score) where ${trips.id} = v.id`,
     )
-    await db.update(trips).set({ score: s.score }).where(eq(trips.id, t.id))
   }
 
   if (week_.distanceKm < SCORING.minWeeklyKm) {

@@ -1,4 +1,5 @@
 import { validate } from '../lib/validate'
+import { HOUR, rateLimit } from '../lib/rate-limit'
 import { asc, desc, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
@@ -60,7 +61,7 @@ export const admin = new Hono<AccessEnv>()
   })
   .get('/invites', async (c) => c.json(await db.select().from(invites).orderBy(desc(invites.created_at))))
   // Staff invites: applied when someone signs in with Google using this (verified) email.
-  .post('/invites', validate('json', staffInvite), async (c) => {
+  .post('/invites', rateLimit({ name: 'admin-invites', max: 100, windowMs: HOUR, by: 'user' }), validate('json', staffInvite), async (c) => {
     const body = c.req.valid('json')
     const [row] = await db
       .insert(invites)

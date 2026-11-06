@@ -32,9 +32,14 @@ export type FactPack = {
   } | null
   advice_speed_kmh: number | null // a concrete target the message can quote
   target_score: number
+  // Share of SACCO shift time recorded (0–100), null without shift records. Low coverage is the
+  // first thing to fix: an unrecorded shift can't count, however good the recorded part was.
+  coverage_pct: number | null
+  low_coverage: boolean
 }
 
 const SEVERITY_WEIGHT = { low: 1, medium: 2, high: 4 }
+const LOW_COVERAGE = 0.6
 const PLACE_RADIUS_M = 800
 const pad = (h: number) => `${String(h % 24).padStart(2, '0')}:00`
 
@@ -87,6 +92,7 @@ export function buildFactPack(opts: {
   score: number
   previousScore: number | null
   subScores: Record<SubScoreName, number>
+  coverage: number | null
   events: CoachEvent[]
   places: NamedPlace[]
 }): FactPack {
@@ -102,5 +108,7 @@ export function buildFactPack(opts: {
     focus,
     advice_speed_kmh: adviceSpeed(focus),
     target_score: Math.min(100, round(opts.score) + 5),
+    coverage_pct: opts.coverage === null ? null : round(opts.coverage * 100),
+    low_coverage: opts.coverage !== null && opts.coverage < LOW_COVERAGE,
   }
 }

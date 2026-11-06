@@ -59,6 +59,13 @@ export default defineConfig({
       cron: "0 16 * * 0",
       functionPath: "/weekly-coaching",
     },
+    // 03:00 EAT daily: recover missed uploads, expire unused upload URLs, 90-day raw retention.
+    "daily-cleanup": {
+      type: "schedule",
+      function: "jobs",
+      cron: "0 0 * * *",
+      functionPath: "/daily-cleanup",
+    },
   },
   // Branch policy: per-branch tuning
   branch: (branch) => {

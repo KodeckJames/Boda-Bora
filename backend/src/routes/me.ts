@@ -1,4 +1,5 @@
 import { validate } from '../lib/validate'
+import { DAY, rateLimit } from '../lib/rate-limit'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
@@ -35,7 +36,7 @@ export const me = new Hono<AccessEnv>()
   })
   // Self-registration for riders who aren't with a SACCO yet. SACCO-registered riders are
   // linked by invite instead, so nobody can claim another rider's record by typing their phone.
-  .post('/rider', validate('json', riderSignup), async (c) => {
+  .post('/rider', rateLimit({ name: 'rider-signup', max: 5, windowMs: DAY, by: 'user' }), validate('json', riderSignup), async (c) => {
     const access = c.get('access')
     if (access.riderId) throw new HTTPException(409, { message: 'You are already registered as a rider' })
     if (access.profile.role && access.profile.role !== 'rider') {
@@ -75,7 +76,7 @@ export const me = new Hono<AccessEnv>()
     )
   })
   // insurer_id omitted = share with any partner insurer.
-  .post('/consents', requireRole('rider'), validate('json', z.object({ insurer_id: z.uuid().optional() })), async (c) => {
+  .post('/consents', requireRole('rider'), rateLimit({ name: 'consents', max: 20, windowMs: DAY, by: 'user' }), validate('json', z.object({ insurer_id: z.uuid().optional() })), async (c) => {
     const riderId = ownRider(c.get('access'))
     const { insurer_id } = c.req.valid('json')
     if (insurer_id) {
@@ -119,7 +120,7 @@ export const me = new Hono<AccessEnv>()
   })
   // Ask an insurer for a quote. Needs consent for that insurer and a current score, which is
   // snapshotted so the decision is made on the score the rider saw.
-  .post('/quotes', requireRole('rider'), validate('json', z.object({ insurer_id: z.uuid() })), async (c) => {
+  .post('/quotes', requireRole('rider'), rateLimit({ name: 'quotes', max: 10, windowMs: DAY, by: 'user' }), validate('json', z.object({ insurer_id: z.uuid() })), async (c) => {
     const riderId = ownRider(c.get('access'))
     const { insurer_id } = c.req.valid('json')
     const [consent] = await db.select({ id: consents.id }).from(consents).where(activeConsentFor(riderId, insurer_id))

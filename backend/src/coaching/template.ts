@@ -29,6 +29,14 @@ const actionEn = {
 export function templateCoaching(f: FactPack): Coaching {
   const trend =
     f.change === null ? '' : f.change > 0 ? ` (+${f.change})` : f.change < 0 ? ` (${f.change})` : ''
+  // Too little of the shift recorded: that's the message, whatever the score says.
+  if (f.low_coverage) {
+    return {
+      message_sw: `Alama yako wiki hii ni ${f.score}${trend}, lakini app ilirekodi ${f.coverage_pct}% tu ya zamu zako. Bonyeza "Anza kazi" mwanzo wa kila zamu na uiache ikirekodi hadi mwisho, ili alama yako iaminike na bima.`,
+      message_en: `Your score this week is ${f.score}${trend}, but the app recorded only ${f.coverage_pct}% of your shifts. Tap "Start shift" at the start of every shift and leave it recording to the end, so insurers can trust your score.`,
+      focus: null,
+    }
+  }
   if (!f.focus) {
     return {
       message_sw: `Alama yako wiki hii ni ${f.score}${trend}. Hakuna tukio la hatari lililorekodiwa. Endelea hivyo!`,

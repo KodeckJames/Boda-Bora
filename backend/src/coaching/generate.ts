@@ -11,6 +11,7 @@ const SYSTEM = [
   'Andika ushauri mfupi, wa heshima na wa vitendo, ukitumia UKWELI ULIOTOLEWA TU.',
   'Usibuni namba, mahali, nyakati wala takwimu ambazo hazipo kwenye ukweli.',
   'Taja mahali na saa hatari ikiwa zimetolewa, na kitendo kimoja mahususi cha kubadilisha wiki ijayo.',
+  'Ikiwa low_coverage ni kweli, ushauri mkuu ni kurekodi zamu nzima (bonyeza "Anza kazi"), si kusifu alama.',
   'Usitumie jina la mendeshaji. Sentensi 2 hadi 3.',
   'Jibu kwa JSON pekee: {"message_sw": "...", "message_en": "...", "focus": "mahali · saa au null"}',
   'message_en ni tafsiri ya Kiingereza ya message_sw.',

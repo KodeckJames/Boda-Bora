@@ -11,6 +11,7 @@ import { requireUser } from '../lib/auth'
 import { kenyanPhone, normaliseKenyanPhone } from '../lib/phone'
 import { realtime } from '../lib/realtime'
 import { validate } from '../lib/validate'
+import { HOUR, rateLimit } from '../lib/rate-limit'
 import { SCORING, tierOf } from '../scoring/model'
 
 const saccoParam = validate('param', z.object({ saccoId: z.uuid() }))
@@ -47,7 +48,7 @@ async function saveShifts(saccoId: string, rows: ShiftInput[]) {
 }
 
 // "phone,starts_at,ends_at" with a header row, ISO 8601 times (e.g. 2026-11-02T06:00:00+03:00).
-function parseShiftCsv(text: string): ShiftInput[] {
+export function parseShiftCsv(text: string): ShiftInput[] {
   const lines = text.split(/\r?\n/).filter((l) => l.trim())
   const header = lines.shift()?.toLowerCase().split(',').map((h) => h.trim()) ?? []
   const col = (name: string) => header.indexOf(name)
@@ -209,6 +210,7 @@ export const sacco = new Hono<AccessEnv>()
   // Register a rider in this SACCO. With an email, they're linked when they sign in with Google.
   .post(
     '/:saccoId/riders',
+    rateLimit({ name: 'sacco-riders', max: 200, windowMs: HOUR, by: 'user' }),
     validate(
       'json',
       z.object({
@@ -249,7 +251,7 @@ export const sacco = new Hono<AccessEnv>()
   )
 
   // Invite a rider who registered on their own to join this SACCO (applied when they sign in).
-  .post('/:saccoId/riders/invite', validate('json', z.object({ email: z.email().transform((e) => e.toLowerCase()) })), async (c) => {
+  .post('/:saccoId/riders/invite', rateLimit({ name: 'sacco-invites', max: 100, windowMs: HOUR, by: 'user' }), validate('json', z.object({ email: z.email().transform((e) => e.toLowerCase()) })), async (c) => {
     const saccoId = c.req.param('saccoId')
     const [row] = await db
       .insert(invites)
@@ -278,6 +280,7 @@ export const sacco = new Hono<AccessEnv>()
   // Shift records: the reference that coverage confidence is checked against.
   .post(
     '/:saccoId/shifts',
+    rateLimit({ name: 'shifts', max: 60, windowMs: HOUR, by: 'user' }),
     bodyLimit({ maxSize: 1024 * 1024 }),
     validate(
       'json',
@@ -299,7 +302,7 @@ export const sacco = new Hono<AccessEnv>()
       return c.json(result, result.saved > 0 ? 201 : 400)
     },
   )
-  .post('/:saccoId/shifts/csv', bodyLimit({ maxSize: 1024 * 1024 }), async (c) => {
+  .post('/:saccoId/shifts/csv', rateLimit({ name: 'shifts', max: 60, windowMs: HOUR, by: 'user' }), bodyLimit({ maxSize: 1024 * 1024 }), async (c) => {
     const saccoId = c.req.param('saccoId')
     const rows = parseShiftCsv(await c.req.text())
     if (rows.length === 0) throw new HTTPException(400, { message: 'CSV has no rows' })

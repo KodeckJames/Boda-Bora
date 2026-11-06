@@ -2,6 +2,7 @@ import { parseTriggerDelivery } from '@neon/functions/triggers'
 import { Hono } from 'hono'
 import { logger } from 'hono/logger'
 import { coachWeek } from '../coaching/run'
+import { deleteExpiredTraces, recoverStuckUploads } from '../maintenance/cleanup'
 import { scoreRecent } from '../scoring/run'
 
 // `jobs` Neon Function: scheduled work, called by cron triggers declared in neon.ts.
@@ -32,6 +33,15 @@ app.post('/weekly-coaching', async (c) => {
   await scoreRecent()
   const result = await coachWeek()
   console.log('weekly-coaching', JSON.stringify(result))
+  return c.json(result)
+})
+
+// Daily: retry uploads a trigger missed, expire unused upload URLs, apply raw-trace retention.
+app.post('/daily-cleanup', async (c) => {
+  const invocation = await fromTrigger(c.req.raw)
+  if (!invocation) return c.json({ error: 'Trigger deliveries only' }, 401)
+  const result = { uploads: await recoverStuckUploads(), retention: await deleteExpiredTraces() }
+  console.log('daily-cleanup', JSON.stringify(result))
   return c.json(result)
 })
 

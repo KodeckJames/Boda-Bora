@@ -165,6 +165,7 @@ export const upload_batches = pgTable(
     error: text('error'),
     created_at: createdAt(),
     processed_at: timestamp('processed_at', { withTimezone: true }),
+    raw_deleted_at: timestamp('raw_deleted_at', { withTimezone: true }), // raw trace removed by retention; summaries kept
   },
   (t) => [index('upload_batches_rider_idx').on(t.rider_id, t.created_at)],
 )

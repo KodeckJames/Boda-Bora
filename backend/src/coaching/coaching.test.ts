@@ -54,7 +54,7 @@ describe('fact pack', () => {
   })
 
   test('weakest sub-score, change and target are computed', () => {
-    const f = buildFactPack({ weekStart: '2026-11-02', score: 64.4, previousScore: 67, subScores, events: [ev({})], places: [githurai] })
+    const f = buildFactPack({ weekStart: '2026-11-02', score: 64.4, previousScore: 67, subScores, coverage: 0.9, events: [ev({})], places: [githurai] })
     expect(f.weakest).toEqual({ name: 'night_exposure', score: 55 })
     expect(f.change).toBe(-3)
     expect(f.target_score).toBe(69)
@@ -67,6 +67,7 @@ describe('template coaching', () => {
     score: 64,
     previousScore: 67,
     subScores,
+    coverage: 0.9,
     events: [ev({}), ev({ t: evening + 600_000 }), ev({ t: evening + 900_000 })],
     places: [githurai],
   })
@@ -87,13 +88,29 @@ describe('template coaching', () => {
   })
 
   test('a clean week gets encouragement', () => {
-    const clean = buildFactPack({ weekStart: '2026-11-02', score: 92, previousScore: 88, subScores, events: [], places: [] })
+    const clean = buildFactPack({ weekStart: '2026-11-02', score: 92, previousScore: 88, subScores, coverage: 0.9, events: [], places: [] })
     expect(templateCoaching(clean).message_en).toBe('Your score this week is 92 (+4). No risky events were recorded. Keep it up!')
   })
 })
 
+describe('coverage coaching', () => {
+  test('low coverage overrides praise, even for a perfect score', () => {
+    const f = buildFactPack({ weekStart: '2026-11-02', score: 100, previousScore: 56, subScores, coverage: 0.3, events: [], places: [] })
+    const c = templateCoaching(f)
+    expect(f.low_coverage).toBe(true)
+    expect(c.message_en).toContain('recorded only 30% of your shifts')
+    expect(c.message_en).not.toContain('Keep it up')
+    expect(usesOnlyFactNumbers(`${c.message_sw} ${c.message_en}`, f)).toBe(true)
+  })
+
+  test('no shift records is not treated as low coverage', () => {
+    const f = buildFactPack({ weekStart: '2026-11-02', score: 90, previousScore: null, subScores, coverage: null, events: [], places: [] })
+    expect(f.low_coverage).toBe(false)
+  })
+})
+
 describe('AI output validation', () => {
-  const facts = buildFactPack({ weekStart: '2026-11-02', score: 64, previousScore: 67, subScores, events: [ev({}), ev({ t: evening + 60_000 })], places: [githurai] })
+  const facts = buildFactPack({ weekStart: '2026-11-02', score: 64, previousScore: 67, subScores, coverage: 0.9, events: [ev({}), ev({ t: evening + 60_000 })], places: [githurai] })
   const good = {
     message_sw: 'Breki zako za ghafla zilitokea karibu na Githurai 45 roundabout saa 18:00–20:00. Punguza mwendo hadi 30 km/h.',
     message_en: 'Your harsh braking happened near Githurai 45 roundabout, 18:00–20:00. Slow to 30 km/h.',

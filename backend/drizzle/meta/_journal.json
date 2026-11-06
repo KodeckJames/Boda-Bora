@@ -43,6 +43,13 @@
       "when": 1793983700658,
       "tag": "0005_coverage_nullable",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793985590708,
+      "tag": "0006_raw_retention",
+      "breakpoints": true
     }
   ]
 }

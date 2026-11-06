@@ -4,6 +4,7 @@ import { logger } from 'hono/logger'
 import { secureHeaders } from 'hono/secure-headers'
 import { env } from './env'
 import { notFound, onError } from './lib/errors'
+import { MINUTE, rateLimit } from './lib/rate-limit'
 import { admin } from './routes/admin'
 import { coaching } from './routes/coaching'
 import { me } from './routes/me'
@@ -19,6 +20,8 @@ const app = new Hono()
 app.use(logger())
 app.use(secureHeaders())
 app.use('/api/*', cors({ origin: env.CORS_ORIGINS }))
+// Coarse per-IP ceiling for everything; tighter per-user limits sit on the write routes.
+app.use('/api/*', rateLimit({ name: 'api-ip', max: 600, windowMs: MINUTE, by: 'ip' }))
 
 app.get('/', (c) => c.json({ name: 'Boda Bora API', docs: '/api/health' }))
 

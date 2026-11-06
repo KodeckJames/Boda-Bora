@@ -1,3 +1,4 @@
+import { HOUR, rateLimit } from '../lib/rate-limit'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db } from '../db/client'
@@ -11,7 +12,7 @@ import { traces } from '../lib/storage'
 // with a presigned URL; the `ingest` function processes it when the object lands.
 export const trips = new Hono<AccessEnv>()
   .use(requireUser, withAccess)
-  .post('/uploads', requireRole('rider'), async (c) => {
+  .post('/uploads', requireRole('rider'), rateLimit({ name: 'uploads', max: 30, windowMs: HOUR, by: 'user' }), async (c) => {
     const riderId = c.get('access').riderId
     if (!riderId) throw new HTTPException(409, { message: 'Finish rider registration first' })
     const key = `batches/${riderId}/${crypto.randomUUID()}.ndjson.gz`

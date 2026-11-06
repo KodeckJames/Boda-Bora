@@ -83,6 +83,7 @@ export async function coachRider(riderId: string, at = Date.now(), opts: { force
       night_exposure: score.night_exposure,
       route_risk: score.route_risk,
     },
+    coverage: score.coverage,
     events,
     places,
   })

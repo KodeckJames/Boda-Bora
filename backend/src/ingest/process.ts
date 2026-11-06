@@ -67,40 +67,39 @@ export async function processUpload(objectKey: string): Promise<IngestResult> {
     let eventCount = 0
     await db.transaction(async (tx) => {
       await tx.delete(trips).where(eq(trips.batch_id, batch.id)) // reprocessing replaces earlier output
-      for (const seg of segments) {
+      // Trip ids are generated here so trips and their events go in as one insert each,
+      // rather than one round trip per trip.
+      const tripRows = segments.map((seg) => {
         const path = simplify(seg.points, 15)
-        const [trip] = await tx
-          .insert(trips)
-          .values({
-            rider_id: batch.rider_id,
-            batch_id: batch.id,
-            started_at: new Date(seg.startedAt),
-            ended_at: new Date(seg.endedAt),
-            distance_m: seg.distanceM,
-            night_m: seg.nightM,
-            blackspot_m: blackspotDistance(seg, spots),
-            max_speed_kmh: seg.maxSpeedKmh,
-            path: path.length >= 2 ? sql`ST_GeomFromText(${toWkt(path)}::text, 4326)` : null,
-          })
-          .returning({ id: trips.id })
-        const events: DetectedEvent[] = detectEvents(seg.points, ride.motion)
-        if (events.length > 0) {
-          await tx.insert(risk_events).values(
-            events.map((e) => ({
-              trip_id: trip!.id,
-              rider_id: batch.rider_id,
-              type: e.type,
-              severity: e.severity,
-              occurred_at: new Date(e.t),
-              location: { x: e.lng, y: e.lat },
-              speed_kmh: e.speedKmh,
-              magnitude_g: e.magnitudeG,
-              blackspot_id: nearestBlackspot(e, spots),
-            })),
-          )
+        return {
+          id: crypto.randomUUID(),
+          rider_id: batch.rider_id,
+          batch_id: batch.id,
+          started_at: new Date(seg.startedAt),
+          ended_at: new Date(seg.endedAt),
+          distance_m: seg.distanceM,
+          night_m: seg.nightM,
+          blackspot_m: blackspotDistance(seg, spots),
+          max_speed_kmh: seg.maxSpeedKmh,
+          path: path.length >= 2 ? sql`ST_GeomFromText(${toWkt(path)}::text, 4326)` : null,
         }
-        eventCount += events.length
-      }
+      })
+      const eventRows = segments.flatMap((seg, i) =>
+        detectEvents(seg.points, ride.motion).map((e: DetectedEvent) => ({
+          trip_id: tripRows[i]!.id,
+          rider_id: batch.rider_id,
+          type: e.type,
+          severity: e.severity,
+          occurred_at: new Date(e.t),
+          location: { x: e.lng, y: e.lat },
+          speed_kmh: e.speedKmh,
+          magnitude_g: e.magnitudeG,
+          blackspot_id: nearestBlackspot(e, spots),
+        })),
+      )
+      if (tripRows.length > 0) await tx.insert(trips).values(tripRows)
+      if (eventRows.length > 0) await tx.insert(risk_events).values(eventRows)
+      eventCount = eventRows.length
       await tx
         .update(upload_batches)
         .set({

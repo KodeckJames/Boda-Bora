@@ -9,6 +9,7 @@ import { assertCanViewRider, requireRole, withAccess, type AccessEnv } from '../
 import { audit } from '../lib/audit'
 import { requireUser } from '../lib/auth'
 import { validate } from '../lib/validate'
+import { HOUR, rateLimit } from '../lib/rate-limit'
 
 const riderParam = validate('param', z.object({ riderId: z.uuid() }))
 
@@ -61,7 +62,7 @@ export const coaching = new Hono<AccessEnv>()
     return c.json(await history(riderId, 20))
   })
   // Regenerate this week's message now (e.g. after new uploads).
-  .post('/riders/:riderId/generate', requireRole('sacco_admin', 'admin'), riderParam, async (c) => {
+  .post('/riders/:riderId/generate', requireRole('sacco_admin', 'admin'), rateLimit({ name: 'coach-generate', max: 30, windowMs: HOUR, by: 'user' }), riderParam, async (c) => {
     const { riderId } = c.req.valid('param')
     await assertCanViewRider(c.get('access'), riderId)
     const result = await coachRider(riderId, Date.now(), { force: true })
