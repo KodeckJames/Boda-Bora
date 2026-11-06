@@ -96,6 +96,17 @@ export function assertSacco(access: Access, saccoId: string) {
   if (!access.saccoIds.includes(saccoId)) throw new HTTPException(403, { message: 'Not your SACCO' })
 }
 
+// Rider-level data: the rider themself, an admin of the rider's SACCO, or a platform admin.
+// Insurers never get rider data this way; they only see consented scores via the insurer API.
+export async function assertCanViewRider(access: Access, riderId: string) {
+  if (access.profile.role === 'admin' || access.riderId === riderId) return
+  if (access.profile.role === 'sacco_admin' && access.saccoIds.length > 0) {
+    const [rider] = await db.select({ sacco_id: riders.sacco_id }).from(riders).where(eq(riders.id, riderId))
+    if (rider?.sacco_id && access.saccoIds.includes(rider.sacco_id)) return
+  }
+  throw new HTTPException(404, { message: 'Rider not found' }) // 404, so rider ids can't be probed
+}
+
 export function assertInsurer(access: Access, insurerId: string) {
   if (access.profile.role === 'admin') return
   if (!access.insurerIds.includes(insurerId)) throw new HTTPException(403, { message: 'Not your insurer' })

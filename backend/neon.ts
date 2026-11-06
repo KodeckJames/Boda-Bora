@@ -52,6 +52,13 @@ export default defineConfig({
       cron: "30 21 * * *",
       functionPath: "/nightly-scores",
     },
+    // Sunday 19:00 EAT: weekly Kiswahili coaching for every scored rider.
+    "weekly-coaching": {
+      type: "schedule",
+      function: "jobs",
+      cron: "0 16 * * 0",
+      functionPath: "/weekly-coaching",
+    },
   },
   // Branch policy: per-branch tuning
   branch: (branch) => {
