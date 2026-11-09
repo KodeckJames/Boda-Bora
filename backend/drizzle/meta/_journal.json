@@ -50,6 +50,13 @@
       "when": 1793985590708,
       "tag": "0006_raw_retention",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794221327569,
+      "tag": "0007_profile_language",
+      "breakpoints": true
     }
   ]
 }

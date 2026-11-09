@@ -10,7 +10,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "deploy": "neon deploy --env .env"
+    "deploy": "neon deploy --env .env",
+    "db:migrate:http": "bun scripts/migrate-http.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1161.0",
@@ -31,6 +32,7 @@
   },
   "devDependencies": {
     "@hono/cli": "^1.0.0-rc.8",
+    "@neondatabase/serverless": "^1.2.0",
     "@types/bun": "latest",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11",

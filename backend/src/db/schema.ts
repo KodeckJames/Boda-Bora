@@ -30,6 +30,7 @@ export const shiftSource = pgEnum('shift_source', ['sacco_upload', 'sacco_manual
 export const coachingSource = pgEnum('coaching_source', ['ai', 'template'])
 export const coachingStatus = pgEnum('coaching_status', ['draft', 'published', 'read'])
 export const quoteStatus = pgEnum('quote_status', ['pending', 'quoted', 'referred', 'declined'])
+export const appLanguage = pgEnum('app_language', ['en', 'sw'])
 
 // ---------- People and organisations ----------
 
@@ -39,6 +40,7 @@ export const profiles = pgTable('profiles', {
   email: text('email'),
   name: text('name'),
   role: userRole('role'), // null until the user completes onboarding
+  language: appLanguage('language'), // preferred UI and coaching language; null = not chosen yet
   created_at: createdAt(),
 })
 

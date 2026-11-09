@@ -23,6 +23,7 @@
       },
       "devDependencies": {
         "@hono/cli": "^1.0.0-rc.8",
+        "@neondatabase/serverless": "^1.2.0",
         "@types/bun": "latest",
         "@types/pg": "^8.23.1",
         "drizzle-kit": "^0.31.11",
@@ -186,6 +187,8 @@
     "@neon/realtime-drizzle": ["@neon/realtime-drizzle@0.1.0", "", { "peerDependencies": { "@neon/realtime": "^0.1.0", "drizzle-orm": ">=0.45.2 <0.46.0" }, "optionalPeers": ["drizzle-orm"] }, "sha512-JZ4g5Zg2klNxF7QPxUKU77d8i+IEtX3fQ83oDoG61/DUi8jPZrTuZGhQyZuspaYTb+tPMYhITBpaRd1qAr0Xtg=="],
 
     "@neon/sdk": ["@neon/sdk@7.7.0", "", {}, "sha512-ncGRkf+E58UEJ3U4Y1MOo6f/fyjOqzjqa3If25uYfDK6VDmRdm7ylrpsENsdZZ3vVnAO6sDnRqMHS0jIisC8XA=="],
+
+    "@neondatabase/serverless": ["@neondatabase/serverless@1.2.0", "", {}, "sha512-tnaqgixUengZQNd9ZrS3ytQfamJzLKY8QxgqWQTNHHtB+KrFQWk77JTbbpg4RD+J3qE4eO2lVytvGDX5Kj6FdQ=="],
 
     "@smithy/core": ["@smithy/core@3.38.1", "", { "dependencies": { "@smithy/types": "^4.19.0", "tslib": "^2.6.2" } }, "sha512-U/mB2XiwTLaf+NSgLSWwJfptsMT/H8aBi0aTAA/E5e2/TagFeGCqAyhKGG0w0A9IWTkm4qYEmLoD/HB6aYfnRA=="],
 

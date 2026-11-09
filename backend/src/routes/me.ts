@@ -34,6 +34,16 @@ export const me = new Hono<AccessEnv>()
       : null
     return c.json({ profile, rider, sacco_ids: saccoIds, insurer_ids: insurerIds })
   })
+  // Preferences: the language the app, coaching (and later USSD and SMS) use for this user.
+  .patch('/', validate('json', z.object({ language: z.enum(['en', 'sw']) })), async (c) => {
+    const { language } = c.req.valid('json')
+    const [profile] = await db
+      .update(profiles)
+      .set({ language })
+      .where(eq(profiles.user_id, c.get('access').profile.user_id))
+      .returning()
+    return c.json({ profile })
+  })
   // Self-registration for riders who aren't with a SACCO yet. SACCO-registered riders are
   // linked by invite instead, so nobody can claim another rider's record by typing their phone.
   .post('/rider', rateLimit({ name: 'rider-signup', max: 5, windowMs: DAY, by: 'user' }), validate('json', riderSignup), async (c) => {
