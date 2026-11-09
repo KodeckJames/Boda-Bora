@@ -1,4 +1,13 @@
-import { blackspots, days, type RiskEvent } from "@/lib/mock-data";
+import type { Dictionary } from "@/lib/i18n/dictionaries/en";
+import { blackspots, type RiskEvent } from "@/lib/mock-data";
+
+// Labels come from the caller's dictionary so charts render in the active language.
+type ChartLabels = Dictionary["charts"] & {
+  days: string[];
+  events: Dictionary["common"]["events"];
+};
+
+export const chartLabels = (t: Dictionary): ChartLabels => ({ ...t.charts, days: t.common.days, events: t.common.events });
 
 const severityColor = {
   low: "var(--warn)",
@@ -7,7 +16,7 @@ const severityColor = {
 };
 
 // Stylised map of the Thika Road corridor. Swap for a real map (Leaflet/Mapbox) once traces exist.
-export function RouteMap({ events }: { events: RiskEvent[] }) {
+export function RouteMap({ events, labels }: { events: RiskEvent[]; labels: ChartLabels }) {
   return (
     <div className="relative overflow-hidden rounded-xl bg-[#eef0ea]">
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-72 w-full">
@@ -32,38 +41,38 @@ export function RouteMap({ events }: { events: RiskEvent[] }) {
       {events.map((e) => (
         <span
           key={e.id}
-          title={`${e.type} · ${e.day} ${e.time} · ${e.place}`}
+          title={`${labels.events[e.type]} · ${labels.days[e.day]} ${e.time} · ${e.place}`}
           className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
           style={{ left: `${e.x}%`, top: `${e.y}%`, background: severityColor[e.severity] }}
         />
       ))}
       <div className="absolute left-3 top-3 rounded-md bg-white/90 px-2 py-1 text-[11px] font-medium text-muted">
-        Thika Road corridor
+        {labels.corridor}
       </div>
       <div className="absolute bottom-3 right-3 flex gap-3 rounded-md bg-white/90 px-2.5 py-1.5 text-[11px] text-muted">
         <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-danger" /> Event
+          <span className="h-2 w-2 rounded-full bg-danger" /> {labels.event}
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2.5 w-2.5 rounded-full border border-danger/40 bg-danger/10" /> Blackspot
+          <span className="h-2.5 w-2.5 rounded-full border border-danger/40 bg-danger/10" /> {labels.blackspot}
         </span>
       </div>
     </div>
   );
 }
 
-export function RiskHeatmap({ data }: { data: number[][] }) {
+export function RiskHeatmap({ data, labels }: { data: number[][]; labels: ChartLabels }) {
   return (
     <div className="overflow-x-auto">
       <div className="min-w-[520px]">
         <div className="grid gap-[3px]" style={{ gridTemplateColumns: "36px repeat(24, minmax(0, 1fr))" }}>
           {data.map((row, d) => (
-            <div key={days[d]} className="contents">
-              <span className="text-xs leading-5 text-muted">{days[d]}</span>
+            <div key={d} className="contents">
+              <span className="text-xs leading-5 text-muted">{labels.days[d]}</span>
               {row.map((v, h) => (
                 <span
                   key={h}
-                  title={`${days[d]} ${String(h).padStart(2, "0")}:00 — risk ${(v * 100).toFixed(0)}`}
+                  title={`${labels.days[d]} ${String(h).padStart(2, "0")}:00 — ${labels.risk} ${(v * 100).toFixed(0)}`}
                   className="h-5 rounded-[3px]"
                   style={{
                     background: v === 0 ? "rgba(0,0,0,0.04)" : `color-mix(in oklab, var(--danger) ${Math.round(v * 100)}%, #fde9c4)`,
@@ -86,7 +95,7 @@ export function RiskHeatmap({ data }: { data: number[][] }) {
   );
 }
 
-export function CoverageBars({ data }: { data: { day: string; shift: number; traced: number }[] }) {
+export function CoverageBars({ data, labels }: { data: { day: number; shift: number; traced: number }[]; labels: ChartLabels }) {
   const max = Math.max(...data.map((d) => d.shift));
   return (
     <div>
@@ -96,13 +105,13 @@ export function CoverageBars({ data }: { data: { day: string; shift: number; tra
             <div className="relative w-full max-w-10 rounded-md bg-black/6" style={{ height: `${(d.shift / max) * 136}px` }}>
               <div className="absolute inset-x-0 bottom-0 rounded-md bg-ink" style={{ height: `${(d.traced / d.shift) * 100}%` }} />
             </div>
-            <span className="text-xs text-muted">{d.day}</span>
+            <span className="text-xs text-muted">{labels.days[d.day]}</span>
           </div>
         ))}
       </div>
       <div className="mt-3 flex gap-4 text-xs text-muted">
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-black/10" /> SACCO shift hours</span>
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-ink" /> Hours with trace</span>
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-black/10" /> {labels.shiftHours}</span>
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-ink" /> {labels.tracedHours}</span>
       </div>
     </div>
   );
@@ -126,7 +135,7 @@ export function Histogram({ data }: { data: { bucket: string; count: number }[] 
       </div>
       <div className="mt-1.5 flex gap-2 text-[11px] text-muted">
         {data.map((d) => (
-          <span key={d.bucket} className="flex-1 text-center">{d.bucket}s</span>
+          <span key={d.bucket} className="flex-1 text-center">{d.bucket}+</span>
         ))}
       </div>
     </div>

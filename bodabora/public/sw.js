@@ -1,9 +1,17 @@
 // Boda Bora service worker: offline app shell + push notifications.
 // Bump VERSION to drop old caches after a deploy that changes cached assets.
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL_CACHE = `shell-${VERSION}`;
 const ASSET_CACHE = `assets-${VERSION}`;
-const SHELL = ["/rider", "/rider/ride", "/offline"];
+const LOCALES = ["en", "sw"];
+// Final URLs (not /rider, which redirects to a language) so cached pages can be served.
+const SHELL = LOCALES.flatMap((l) => [`/${l}/rider`, `/${l}/rider/ride`, `/${l}/offline`]);
+
+// The offline page in the language of the requested URL.
+const offlineFor = (url) => {
+  const first = new URL(url).pathname.split("/")[1];
+  return `/${LOCALES.includes(first) ? first : "en"}/offline`;
+};
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -44,7 +52,7 @@ self.addEventListener("fetch", (event) => {
           caches.open(SHELL_CACHE).then((cache) => cache.put(request, copy));
           return res;
         })
-        .catch(async () => (await caches.match(request)) ?? caches.match("/offline")),
+        .catch(async () => (await caches.match(request)) ?? caches.match(offlineFor(request.url))),
     );
     return;
   }

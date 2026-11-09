@@ -6,9 +6,8 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Boda Bora — Rider Safety Score",
     short_name: "Boda Bora",
     description:
-      "Check your Rider Safety Score, record your shifts and get weekly coaching in Kiswahili.",
-    lang: "sw",
-    start_url: "/rider",
+      "Check your Rider Safety Score, record your shifts and get weekly coaching in English or Kiswahili.",
+    start_url: "/rider", // proxy.ts adds the saved language: /sw/rider or /en/rider
     scope: "/",
     display: "standalone",
     orientation: "portrait",
@@ -23,8 +22,8 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
-        name: "Anza kazi (Start shift)",
-        short_name: "Anza kazi",
+        name: "Start shift",
+        short_name: "Start shift",
         url: "/rider/ride",
         icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }],
       },

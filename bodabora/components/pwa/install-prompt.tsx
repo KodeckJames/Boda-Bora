@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { useI18n } from "@/lib/i18n/client";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -28,6 +29,7 @@ function subscribeDisplayMode(onChange: () => void) {
 // Android/Chrome: our own install button via beforeinstallprompt.
 // iOS has no install API, so we show the Share → Add to Home Screen steps instead.
 export function InstallPrompt() {
+  const { t } = useI18n();
   const detected = useSyncExternalStore(subscribeDisplayMode, detect, () => "other" as const);
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
@@ -53,15 +55,12 @@ export function InstallPrompt() {
   return (
     <div className="rounded-2xl border border-ink/10 bg-ink p-4 text-white">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold">Weka Boda Bora kwenye simu</p>
-          <p className="text-xs text-white/60">Install the app on your phone</p>
-        </div>
+        <p className="font-semibold">{t.install.title}</p>
         <button
           type="button"
           onClick={() => setDismissed(true)}
           className="text-sm text-white/60"
-          aria-label="Dismiss"
+          aria-label={t.install.dismiss}
         >
           ✕
         </button>
@@ -76,16 +75,13 @@ export function InstallPrompt() {
           }}
           className="mt-3 h-10 w-full rounded-full bg-hivis text-sm font-semibold text-ink"
         >
-          Sakinisha · Install
+          {t.install.install}
         </button>
       )}
       {platform === "ios" && (
         <ol className="mt-3 space-y-1 text-sm text-white/80">
-          <li>
-            1. Bonyeza <span aria-label="Share">⎋ Share</span> chini ya Safari
-          </li>
-          <li>2. Chagua &ldquo;Add to Home Screen&rdquo; ➕</li>
-          <li className="text-xs text-white/50">Tap Share, then Add to Home Screen.</li>
+          <li>{t.install.iosStep1}</li>
+          <li>{t.install.iosStep2}</li>
         </ol>
       )}
     </div>

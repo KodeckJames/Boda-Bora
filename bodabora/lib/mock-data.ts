@@ -1,4 +1,5 @@
 // Placeholder data for the UI. Replace with real telematics/scoring output later.
+// Display text lives in the i18n dictionaries; this file stores keys and values only.
 
 export type RiskBand = "low" | "moderate" | "high";
 
@@ -9,6 +10,9 @@ export type SubScores = {
   nightExposure: number;
   routeRisk: number;
 };
+
+export type FlagKey = "harsh_cluster" | "coverage_gap" | "score_jump" | "night_service_lane" | "fast_cornering";
+export type Flag = { key: FlagKey; params?: Record<string, string | number> };
 
 export type Rider = {
   id: string;
@@ -24,7 +28,7 @@ export type Rider = {
   weeklyKm: number;
   trips: number;
   nightShare: number; // % of km ridden 19:00-06:00
-  flags: string[];
+  flags: Flag[];
   trend: number[]; // last 8 weeks
 };
 
@@ -60,7 +64,7 @@ export const riders: Rider[] = [
     weeklyKm: 538,
     trips: 121,
     nightShare: 34,
-    flags: ["Harsh braking cluster near Githurai roundabout"],
+    flags: [{ key: "harsh_cluster", params: { place: "Githurai 45 roundabout" } }],
     trend: [68, 66, 67, 69, 65, 67, 67, 64],
   },
   {
@@ -94,7 +98,7 @@ export const riders: Rider[] = [
     weeklyKm: 188,
     trips: 39,
     nightShare: 12,
-    flags: ["Coverage gap: 23 of 39 SACCO shift hours missing trace", "Score jump with falling coverage"],
+    flags: [{ key: "coverage_gap", params: { missing: 23, total: 39 } }, { key: "score_jump" }],
     trend: [62, 63, 61, 64, 65, 66, 68, 79],
   },
   {
@@ -111,7 +115,7 @@ export const riders: Rider[] = [
     weeklyKm: 611,
     trips: 140,
     nightShare: 46,
-    flags: ["Night riding on Thika Rd service lane", "Cornering speed above 45 km/h at Kasarani exit"],
+    flags: [{ key: "night_service_lane" }, { key: "fast_cornering", params: { speed: 45, place: "Kasarani exit" } }],
     trend: [55, 54, 56, 53, 52, 54, 53, 47],
   },
   {
@@ -139,11 +143,13 @@ export function getRider(id: string) {
 
 export const currentRider = riders[1];
 
+export type EventKey = "harsh_braking" | "sharp_cornering" | "rapid_acceleration" | "blackspot_pass";
+
 export type RiskEvent = {
   id: string;
-  type: "Harsh braking" | "Sharp cornering" | "Rapid acceleration" | "Blackspot pass";
+  type: EventKey;
   time: string;
-  day: string;
+  day: number; // 0 = Monday
   place: string;
   severity: "low" | "medium" | "high";
   speedKmh: number;
@@ -153,13 +159,13 @@ export type RiskEvent = {
 };
 
 export const riskEvents: RiskEvent[] = [
-  { id: "e1", type: "Harsh braking", time: "18:42", day: "Mon", place: "Githurai 45 roundabout", severity: "high", speedKmh: 52, x: 74, y: 22 },
-  { id: "e2", type: "Harsh braking", time: "19:05", day: "Tue", place: "Githurai 45 roundabout", severity: "high", speedKmh: 48, x: 72, y: 25 },
-  { id: "e3", type: "Sharp cornering", time: "07:16", day: "Wed", place: "Kasarani exit ramp", severity: "medium", speedKmh: 41, x: 46, y: 50 },
-  { id: "e4", type: "Blackspot pass", time: "20:30", day: "Thu", place: "Roysambu footbridge", severity: "medium", speedKmh: 44, x: 34, y: 60 },
-  { id: "e5", type: "Rapid acceleration", time: "12:11", day: "Fri", place: "Kahawa West stage", severity: "low", speedKmh: 30, x: 58, y: 36 },
-  { id: "e6", type: "Harsh braking", time: "19:21", day: "Sat", place: "Githurai 45 roundabout", severity: "high", speedKmh: 55, x: 75, y: 20 },
-  { id: "e7", type: "Sharp cornering", time: "21:02", day: "Sat", place: "Allsops interchange", severity: "medium", speedKmh: 39, x: 16, y: 78 },
+  { id: "e1", type: "harsh_braking", time: "18:42", day: 0, place: "Githurai 45 roundabout", severity: "high", speedKmh: 52, x: 74, y: 22 },
+  { id: "e2", type: "harsh_braking", time: "19:05", day: 1, place: "Githurai 45 roundabout", severity: "high", speedKmh: 48, x: 72, y: 25 },
+  { id: "e3", type: "sharp_cornering", time: "07:16", day: 2, place: "Kasarani exit ramp", severity: "medium", speedKmh: 41, x: 46, y: 50 },
+  { id: "e4", type: "blackspot_pass", time: "20:30", day: 3, place: "Roysambu footbridge", severity: "medium", speedKmh: 44, x: 34, y: 60 },
+  { id: "e5", type: "rapid_acceleration", time: "12:11", day: 4, place: "Kahawa West stage", severity: "low", speedKmh: 30, x: 58, y: 36 },
+  { id: "e6", type: "harsh_braking", time: "19:21", day: 5, place: "Githurai 45 roundabout", severity: "high", speedKmh: 55, x: 75, y: 20 },
+  { id: "e7", type: "sharp_cornering", time: "21:02", day: 5, place: "Allsops interchange", severity: "medium", speedKmh: 39, x: 16, y: 78 },
 ];
 
 export const blackspots = [
@@ -171,7 +177,7 @@ export const blackspots = [
 
 export type Trip = {
   id: string;
-  day: string;
+  day: "today" | "yesterday";
   start: string;
   from: string;
   to: string;
@@ -182,11 +188,11 @@ export type Trip = {
 };
 
 export const recentTrips: Trip[] = [
-  { id: "t-118", day: "Today", start: "18:40", from: "Githurai 45", to: "Roysambu", km: 7.2, mins: 19, events: 2, score: 58 },
-  { id: "t-117", day: "Today", start: "16:05", from: "Kahawa West", to: "Githurai 45", km: 5.1, mins: 14, events: 0, score: 81 },
-  { id: "t-116", day: "Today", start: "13:22", from: "Roysambu", to: "TRM", km: 2.4, mins: 8, events: 0, score: 86 },
-  { id: "t-115", day: "Yesterday", start: "20:47", from: "Kasarani", to: "Githurai 45", km: 6.8, mins: 18, events: 3, score: 49 },
-  { id: "t-114", day: "Yesterday", start: "07:10", from: "Githurai 45", to: "Pangani", km: 11.6, mins: 31, events: 1, score: 72 },
+  { id: "t-118", day: "today", start: "18:40", from: "Githurai 45", to: "Roysambu", km: 7.2, mins: 19, events: 2, score: 58 },
+  { id: "t-117", day: "today", start: "16:05", from: "Kahawa West", to: "Githurai 45", km: 5.1, mins: 14, events: 0, score: 81 },
+  { id: "t-116", day: "today", start: "13:22", from: "Roysambu", to: "TRM", km: 2.4, mins: 8, events: 0, score: 86 },
+  { id: "t-115", day: "yesterday", start: "20:47", from: "Kasarani", to: "Githurai 45", km: 6.8, mins: 18, events: 3, score: 49 },
+  { id: "t-114", day: "yesterday", start: "07:10", from: "Githurai 45", to: "Pangani", km: 11.6, mins: 31, events: 1, score: 72 },
 ];
 
 // Hour-of-day risk for heatmap: 7 days x 24 hours, 0-1
@@ -199,17 +205,15 @@ export const hourlyRisk: number[][] = Array.from({ length: 7 }, (_, d) =>
   }),
 );
 
-export const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-// SACCO shift hours vs hours with trace coverage, per day
+// SACCO shift hours vs hours with trace coverage, per day (0 = Monday)
 export const shiftCoverage = [
-  { day: "Mon", shift: 10, traced: 9.4 },
-  { day: "Tue", shift: 11, traced: 10.1 },
-  { day: "Wed", shift: 9, traced: 8.2 },
-  { day: "Thu", shift: 10, traced: 9.0 },
-  { day: "Fri", shift: 12, traced: 10.6 },
-  { day: "Sat", shift: 12, traced: 10.3 },
-  { day: "Sun", shift: 6, traced: 5.2 },
+  { day: 0, shift: 10, traced: 9.4 },
+  { day: 1, shift: 11, traced: 10.1 },
+  { day: 2, shift: 9, traced: 8.2 },
+  { day: 3, shift: 10, traced: 9.0 },
+  { day: 4, shift: 12, traced: 10.6 },
+  { day: 5, shift: 12, traced: 10.3 },
+  { day: 6, shift: 6, traced: 5.2 },
 ];
 
 export const coachingMessage = {
@@ -227,10 +231,10 @@ export const fleetStats = {
 };
 
 export const insurerTiers = [
-  { band: "Tier A", range: "85–100", riders: 214, premium: 6200, base: 14500, claimRate: 2.1 },
-  { band: "Tier B", range: "70–84", riders: 486, premium: 9100, base: 14500, claimRate: 4.8 },
-  { band: "Tier C", range: "55–69", riders: 371, premium: 12800, base: 14500, claimRate: 8.9 },
-  { band: "Tier D", range: "0–54", riders: 142, premium: 17400, base: 14500, claimRate: 15.6 },
+  { tier: "A", range: "85–100", riders: 214, premium: 6200, base: 14500, claimRate: 2.1 },
+  { tier: "B", range: "70–84", riders: 486, premium: 9100, base: 14500, claimRate: 4.8 },
+  { tier: "C", range: "55–69", riders: 371, premium: 12800, base: 14500, claimRate: 8.9 },
+  { tier: "D", range: "0–54", riders: 142, premium: 17400, base: 14500, claimRate: 15.6 },
 ];
 
 export const scoreDistribution = [
@@ -244,18 +248,10 @@ export const scoreDistribution = [
 ];
 
 export const quoteQueue = [
-  { rider: "Dennis Kiprop", sacco: "Kahawa West Riders", score: 91, coverage: 97, weeks: 12, status: "Eligible" },
-  { rider: "Brian Otieno", sacco: "Roysambu Boda SACCO", score: 82, coverage: 94, weeks: 9, status: "Eligible" },
-  { rider: "Samuel Njoroge", sacco: "Roysambu Boda SACCO", score: 79, coverage: 41, weeks: 6, status: "Low confidence" },
-  { rider: "Joseph Mutua", sacco: "Kahawa West Riders", score: 73, coverage: 86, weeks: 10, status: "Eligible" },
-  { rider: "Kevin Mwangi", sacco: "Githurai Stage Welfare", score: 64, coverage: 88, weeks: 8, status: "Eligible" },
-  { rider: "Peter Wanjala", sacco: "Githurai Stage Welfare", score: 47, coverage: 91, weeks: 11, status: "Refer" },
+  { rider: "Dennis Kiprop", sacco: "Kahawa West Riders", score: 91, coverage: 97, weeks: 12, status: "eligible" as const },
+  { rider: "Brian Otieno", sacco: "Roysambu Boda SACCO", score: 82, coverage: 94, weeks: 9, status: "eligible" as const },
+  { rider: "Samuel Njoroge", sacco: "Roysambu Boda SACCO", score: 79, coverage: 41, weeks: 6, status: "low_confidence" as const },
+  { rider: "Joseph Mutua", sacco: "Kahawa West Riders", score: 73, coverage: 86, weeks: 10, status: "eligible" as const },
+  { rider: "Kevin Mwangi", sacco: "Githurai Stage Welfare", score: 64, coverage: 88, weeks: 8, status: "eligible" as const },
+  { rider: "Peter Wanjala", sacco: "Githurai Stage Welfare", score: 47, coverage: 91, weeks: 11, status: "refer" as const },
 ];
-
-export const subScoreLabels: Record<keyof SubScores, { en: string; sw: string }> = {
-  braking: { en: "Braking", sw: "Breki" },
-  cornering: { en: "Cornering", sw: "Kona" },
-  acceleration: { en: "Acceleration", sw: "Kuongeza mwendo" },
-  nightExposure: { en: "Night hours", sw: "Saa za usiku" },
-  routeRisk: { en: "Route risk", sw: "Hatari ya njia" },
-};

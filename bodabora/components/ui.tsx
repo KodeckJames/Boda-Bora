@@ -1,15 +1,19 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export function scoreTone(score: number) {
-  if (score >= 75) return { text: "text-safe", bg: "bg-safe", stroke: "var(--safe)", label: "Low risk" };
-  if (score >= 55) return { text: "text-warn", bg: "bg-warn", stroke: "var(--warn)", label: "Moderate" };
-  return { text: "text-danger", bg: "bg-danger", stroke: "var(--danger)", label: "High risk" };
+export type RiskLevel = "low" | "moderate" | "high";
+export type RiskLabels = Record<RiskLevel, string>;
+
+// Colours by score band. The label text comes from the dictionary (common.risk[risk]).
+export function scoreTone(score: number): { text: string; bg: string; stroke: string; risk: RiskLevel } {
+  if (score >= 75) return { text: "text-safe", bg: "bg-safe", stroke: "var(--safe)", risk: "low" };
+  if (score >= 55) return { text: "text-warn", bg: "bg-warn", stroke: "var(--warn)", risk: "moderate" };
+  return { text: "text-danger", bg: "bg-danger", stroke: "var(--danger)", risk: "high" };
 }
 
-export function Logo({ dark = false }: { dark?: boolean }) {
+export function Logo({ dark = false, href = "/" }: { dark?: boolean; href?: string }) {
   return (
-    <Link href="/" className="flex items-center gap-2">
+    <Link href={href} className="flex items-center gap-2">
       <span className="grid h-8 w-8 place-items-center rounded-lg bg-hivis text-ink">
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2.2}>
           <circle cx="5.5" cy="16.5" r="3.5" />
@@ -64,11 +68,13 @@ export function Badge({
 export function ScoreGauge({
   score,
   size = 180,
-  label = "Rider Safety Score",
+  label,
+  riskLabels,
 }: {
   score: number;
   size?: number;
-  label?: string;
+  label: string;
+  riskLabels: RiskLabels;
 }) {
   const r = 70;
   const circumference = Math.PI * r; // half circle
@@ -90,7 +96,7 @@ export function ScoreGauge({
       </svg>
       <div className="-mt-12 flex flex-col items-center">
         <span className="tabular text-5xl font-bold tracking-tight">{score}</span>
-        <span className={`text-xs font-semibold uppercase tracking-wider ${tone.text}`}>{tone.label}</span>
+        <span className={`text-xs font-semibold uppercase tracking-wider ${tone.text}`}>{riskLabels[tone.risk]}</span>
       </div>
     </div>
   );

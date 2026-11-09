@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Badge, Card, CardTitle } from "@/components/ui";
 import { NotSignedInError } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/client";
+import { format } from "@/lib/i18n/config";
 import {
   RideRecorder,
   requestPermissions,
@@ -27,22 +29,25 @@ function duration(ms: number) {
   return `${h}:${String(m).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 }
 
-const statusLabel: Record<RideSession["status"], { text: string; tone: "neutral" | "safe" | "warn" | "danger" }> = {
-  recording: { text: "Inarekodi · Recording", tone: "safe" },
-  pending: { text: "Inasubiri · Not uploaded", tone: "warn" },
-  uploading: { text: "Inapakia · Uploading", tone: "neutral" },
-  uploaded: { text: "Imepakiwa · Uploaded", tone: "safe" },
-  failed: { text: "Imeshindwa · Failed", tone: "danger" },
+const statusTone: Record<RideSession["status"], "neutral" | "safe" | "warn" | "danger"> = {
+  recording: "safe",
+  pending: "warn",
+  uploading: "neutral",
+  uploaded: "safe",
+  failed: "danger",
 };
 
 export function RideMode() {
+  const { locale, t } = useI18n();
+  const r = t.ride;
+  const dateLocale = locale === "sw" ? "sw-KE" : "en-KE";
   const support = useSyncExternalStore(noopSubscribe, getSupport, () => null);
   const [permissions, setPermissions] = useState<{ motion: boolean; gps: boolean } | null>(null);
   const [state, setState] = useState<RecorderState | null>(null);
   const [sessions, setSessions] = useState<RideSession[]>([]);
   const [pocket, setPocket] = useState(false);
   const [now, setNow] = useState(0); // set by the timer while recording
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notSignedIn, setNotSignedIn] = useState(false);
   const recorder = useRef<RideRecorder | null>(null);
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -74,10 +79,10 @@ export function RideMode() {
 
   async function start(resume?: RideSession) {
     setNow(Date.now());
-    const r = new RideRecorder(resume);
-    recorder.current = r;
-    r.subscribe(setState);
-    await r.start();
+    const rec = new RideRecorder(resume);
+    recorder.current = rec;
+    rec.subscribe(setState);
+    await rec.start();
     void refresh();
   }
 
@@ -91,11 +96,7 @@ export function RideMode() {
 
   async function upload(id: string) {
     const result = await uploadSession(id);
-    setNotice(
-      result?.status === "failed" && result.error === new NotSignedInError().message
-        ? "Ingia kwanza ili kupakia · Sign in to upload. Your shift is saved on this phone."
-        : null,
-    );
+    setNotSignedIn(result?.status === "failed" && result.error === new NotSignedInError().message);
     void refresh();
   }
 
@@ -106,10 +107,9 @@ export function RideMode() {
     <div className="space-y-4">
       {interrupted && !recording && (
         <Card className="border-warn/40">
-          <p className="font-semibold">Zamu iliyokatizwa · Interrupted shift</p>
+          <p className="font-semibold">{r.interruptedTitle}</p>
           <p className="mt-1 text-sm text-muted">
-            A shift from {new Date(interrupted.startedAt).toLocaleTimeString("en-KE")} was still
-            recording when the app closed. The time it was closed counts as a gap.
+            {format(r.interruptedBody, { time: new Date(interrupted.startedAt).toLocaleTimeString(dateLocale) })}
           </p>
           <button
             type="button"
@@ -117,22 +117,18 @@ export function RideMode() {
             disabled={!gpsOk}
             className="mt-3 h-10 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:opacity-40"
           >
-            Endelea · Resume
+            {r.resume}
           </button>
         </Card>
       )}
 
       {!recording && (
         <Card>
-          <CardTitle>1. Ruhusa · Permissions</CardTitle>
-          <p className="text-sm text-muted">
-            Boda Bora inahitaji GPS na vihisi vya mwendo ili kupima uendeshaji wako. Data inakaa
-            kwenye simu hadi uipakie. <span className="block pt-1 text-xs">We need GPS and motion
-            sensors to measure your riding. Data stays on this phone until you upload it.</span>
-          </p>
+          <CardTitle>{r.permissionsTitle}</CardTitle>
+          <p className="text-sm text-muted">{r.permissionsBody}</p>
           {support && (!support.motion || !support.gps) && (
             <p className="mt-2 text-sm text-danger">
-              This browser doesn&apos;t support {!support.gps ? "GPS" : "motion sensors"}.
+              {format(r.unsupported, { sensor: !support.gps ? r.gps : r.motion })}
             </p>
           )}
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -141,13 +137,13 @@ export function RideMode() {
               onClick={() => void grant()}
               className="h-10 rounded-full border border-line px-5 text-sm font-semibold"
             >
-              Ruhusu · Allow
+              {r.allow}
             </button>
             {permissions && (
               <>
-                <Badge tone={permissions.gps ? "safe" : "danger"}>GPS {permissions.gps ? "✓" : "✕"}</Badge>
+                <Badge tone={permissions.gps ? "safe" : "danger"}>{r.gps} {permissions.gps ? "✓" : "✕"}</Badge>
                 <Badge tone={permissions.motion ? "safe" : "danger"}>
-                  Mwendo {permissions.motion ? "✓" : "✕"}
+                  {r.motionShort} {permissions.motion ? "✓" : "✕"}
                 </Badge>
               </>
             )}
@@ -156,16 +152,8 @@ export function RideMode() {
       )}
 
       <Card className={recording ? "border-safe/40" : ""}>
-        <CardTitle
-          action={
-            recording ? (
-              <Badge tone="safe">● Inarekodi</Badge>
-            ) : (
-              <Badge>Haijaanza</Badge>
-            )
-          }
-        >
-          2. Zamu · Shift
+        <CardTitle action={recording ? <Badge tone="safe">{r.recording}</Badge> : <Badge>{r.notStarted}</Badge>}>
+          {r.shiftTitle}
         </CardTitle>
 
         {recording && s ? (
@@ -173,26 +161,26 @@ export function RideMode() {
             <p className="tabular text-5xl font-bold tracking-tight">{duration(now - s.startedAt)}</p>
             <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
               <div className="rounded-xl bg-black/4 p-2">
-                <dt className="text-xs text-muted">Km</dt>
+                <dt className="text-xs text-muted">{r.km}</dt>
                 <dd className="tabular text-lg font-bold">{(s.stats.distanceM / 1000).toFixed(1)}</dd>
               </div>
               <div className="rounded-xl bg-black/4 p-2">
-                <dt className="text-xs text-muted">GPS</dt>
+                <dt className="text-xs text-muted">{r.gps}</dt>
                 <dd className="tabular text-lg font-bold">{s.stats.gpsFixes}</dd>
               </div>
               <div className="rounded-xl bg-black/4 p-2">
-                <dt className="text-xs text-muted">Mwendo</dt>
+                <dt className="text-xs text-muted">{r.motionShort}</dt>
                 <dd className="tabular text-lg font-bold">{s.stats.motionSamples}</dd>
               </div>
             </dl>
             <p className="mt-3 text-xs text-muted">
-              Skrini:{" "}
+              {r.screen}:{" "}
               {state?.wakeLock === "active"
-                ? "itabaki imewaka · screen stays on"
+                ? r.screenOn
                 : state?.wakeLock === "unsupported"
-                  ? "simu hii haiwezi kuzuia skrini kuzima · keep the screen on manually"
-                  : "inaweza kuzima · may turn off"}
-              {s.gaps.length > 0 && ` · ${s.gaps.length} gap(s)`}
+                  ? r.screenUnsupported
+                  : r.screenMayOff}
+              {s.gaps.length > 0 && ` · ${format(r.gaps, { n: s.gaps.length })}`}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <button
@@ -200,45 +188,38 @@ export function RideMode() {
                 onClick={() => setPocket(true)}
                 className="h-11 flex-1 rounded-full bg-ink px-5 text-sm font-semibold text-white"
               >
-                Skrini ya mfukoni · Pocket screen
+                {r.pocketScreen}
               </button>
               <button
                 type="button"
                 onClick={() => void finish()}
                 className="h-11 flex-1 rounded-full bg-danger px-5 text-sm font-semibold text-white"
               >
-                Maliza · Finish
+                {r.finish}
               </button>
             </div>
           </>
         ) : (
           <>
-            <p className="text-sm text-muted">
-              Weka app wazi wakati wa zamu nzima. Saa ambazo app imefungwa zinaonekana kama
-              mapengo na hupunguza uaminifu wa alama yako.{" "}
-              <span className="block pt-1 text-xs">
-                Keep the app open for the whole shift. Time with the app closed shows as a gap and
-                lowers your score&apos;s confidence.
-              </span>
-            </p>
+            <p className="text-sm text-muted">{r.keepOpen}</p>
             <button
               type="button"
               onClick={() => void start()}
               disabled={!gpsOk}
               className="mt-4 h-12 w-full rounded-full bg-hivis text-base font-bold text-ink disabled:opacity-40"
             >
-              Anza kazi · Start shift
+              {r.start}
             </button>
-            {!gpsOk && <p className="mt-2 text-center text-xs text-muted">Allow GPS first.</p>}
+            {!gpsOk && <p className="mt-2 text-center text-xs text-muted">{r.allowGpsFirst}</p>}
           </>
         )}
       </Card>
 
       <Card>
-        <CardTitle>3. Zamu zilizohifadhiwa · Saved shifts</CardTitle>
-        {notice && <p className="mb-3 rounded-xl bg-warn/10 p-3 text-sm text-[#9a5d00]">{notice}</p>}
+        <CardTitle>{r.savedTitle}</CardTitle>
+        {notSignedIn && <p className="mb-3 rounded-xl bg-warn/10 p-3 text-sm text-[#9a5d00]">{r.signInToUpload}</p>}
         {sessions.filter((x) => x.status !== "recording").length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted">Hakuna bado · No shifts yet.</p>
+          <p className="py-4 text-center text-sm text-muted">{r.noShifts}</p>
         ) : (
           <ul className="divide-y divide-line">
             {sessions
@@ -247,14 +228,14 @@ export function RideMode() {
                 <li key={x.id} className="flex items-center justify-between gap-3 py-3 text-sm">
                   <div>
                     <p className="font-medium">
-                      {new Date(x.startedAt).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" })}
+                      {new Date(x.startedAt).toLocaleString(dateLocale, { dateStyle: "medium", timeStyle: "short" })}
                     </p>
                     <p className="text-xs text-muted">
                       {duration((x.endedAt ?? x.startedAt) - x.startedAt)} ·{" "}
-                      {(x.stats.distanceM / 1000).toFixed(1)} km · {x.gaps.length} gap(s)
+                      {(x.stats.distanceM / 1000).toFixed(1)} km · {format(r.gaps, { n: x.gaps.length })}
                     </p>
                     <div className="mt-1">
-                      <Badge tone={statusLabel[x.status].tone}>{statusLabel[x.status].text}</Badge>
+                      <Badge tone={statusTone[x.status]}>{r.status[x.status]}</Badge>
                     </div>
                   </div>
                   {(x.status === "pending" || x.status === "failed") && (
@@ -263,7 +244,7 @@ export function RideMode() {
                       onClick={() => void upload(x.id)}
                       className="h-9 shrink-0 rounded-full border border-line px-4 text-sm font-semibold"
                     >
-                      Pakia · Upload
+                      {r.upload}
                     </button>
                   )}
                 </li>
@@ -286,8 +267,8 @@ export function RideMode() {
           onContextMenu={(e) => e.preventDefault()}
         >
           <p className="tabular text-3xl font-semibold">{duration(now - s.startedAt)}</p>
-          <p className="mt-2 text-xs">● Inarekodi · Recording</p>
-          <p className="absolute bottom-10 text-xs">Bonyeza kwa sekunde 2 kufungua · Hold 2s to exit</p>
+          <p className="mt-2 text-xs">{r.pocketRecording}</p>
+          <p className="absolute bottom-10 text-xs">{r.holdToExit}</p>
         </div>
       )}
     </div>
