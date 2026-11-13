@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { Button, Logo, ScoreBar, ScoreGauge } from "@/components/ui";
+import { privacyPolicy } from "@/lib/legal/privacy";
+import { termsOfService } from "@/lib/legal/terms";
 import { withLocale } from "@/lib/i18n/config";
 import { getI18n } from "@/lib/i18n/server";
 import { coachingMessage, currentRider } from "@/lib/mock-data";
@@ -132,6 +134,10 @@ export default async function Home() {
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-8 text-sm text-muted sm:flex-row sm:justify-between sm:px-6">
           <span>{l.footerLeft}</span>
           <span>{l.footerRight}</span>
+          <span className="flex gap-4">
+            <Link href={href("/privacy")} className="hover:text-foreground">{privacyPolicy[locale].title}</Link>
+            <Link href={href("/terms")} className="hover:text-foreground">{termsOfService[locale].title}</Link>
+          </span>
         </div>
       </footer>
     </div>
