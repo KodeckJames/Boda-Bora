@@ -1,5 +1,6 @@
-// Demo fleet for presentations and frontend work. SYNTHETIC DATA, clearly labelled DEMO.
-// Real validation uses the Thika Road field traces, never this.
+// Sample fleet for presentations and frontend work. SYNTHETIC DATA with realistic names, so the
+// app looks lived-in; it is recognised (and removed by --reset) by its reserved phone numbers and
+// the fixed organisation names below. Real validation uses the Thika Road field traces, never this.
 //
 //   bun --env-file=.env.dev scripts/seed-demo.ts            seed the dev branch
 //   bun --env-file=.env.dev scripts/seed-demo.ts --reset    remove the demo data first
@@ -52,9 +53,13 @@ if (linkEmail && (!linkName || linkName.split(/\s+/).length < 2)) {
 
 const H = 3600_000
 const D = 24 * H
-const PREFIX = 'DEMO'
-const PHONE_PREFIX = '+2547000000' // every demo rider's phone starts with this (used by --reset)
+const LEGACY_PREFIX = 'DEMO' // earlier seeds labelled everything "DEMO …"; --reset still removes them
+const PHONE_PREFIX = '+2547000000' // every seeded rider's phone starts with this (used by --reset)
 const SEED_INVITER = 'seed-demo'
+const SACCO_NAME = 'Thika Road Boda SACCO'
+const INSURER_NAME = 'Bima Bora Insurance'
+const BLACKSPOT_SOURCE = 'approximate location'
+const LEGACY_BLACKSPOT_SOURCE = 'demo (approximate location)'
 
 // Approximate Thika Road corridor locations, for demo maps only.
 const PLACES = {
@@ -68,7 +73,7 @@ async function reset() {
   const demoRiders = await db
     .select({ id: riders.id })
     .from(riders)
-    .where(or(like(riders.name, `${PREFIX} %`), like(riders.phone, `${PHONE_PREFIX}%`)))
+    .where(or(like(riders.name, `${LEGACY_PREFIX} %`), like(riders.phone, `${PHONE_PREFIX}%`)))
   const ids = demoRiders.map((r) => r.id)
   if (ids.length) {
     const keys = await db.select({ k: upload_batches.object_key }).from(upload_batches).where(inArray(upload_batches.rider_id, ids))
@@ -76,33 +81,36 @@ async function reset() {
     await db.delete(invites).where(or(inArray(invites.rider_id, ids), eq(invites.invited_by, SEED_INVITER)))
     await db.delete(riders).where(inArray(riders.id, ids)) // cascades to trips, events, scores, coaching, consents...
   }
-  await db.delete(saccos).where(like(saccos.name, `${PREFIX} %`))
-  await db.delete(insurers).where(like(insurers.name, `${PREFIX} %`))
-  await db.delete(blackspots).where(eq(blackspots.source, 'demo (approximate location)'))
+  await db.delete(saccos).where(or(eq(saccos.name, SACCO_NAME), like(saccos.name, `${LEGACY_PREFIX} %`)))
+  await db.delete(insurers).where(or(eq(insurers.name, INSURER_NAME), like(insurers.name, `${LEGACY_PREFIX} %`)))
+  await db.delete(blackspots).where(inArray(blackspots.source, [BLACKSPOT_SOURCE, LEGACY_BLACKSPOT_SOURCE]))
   console.log(`reset: removed ${ids.length} demo riders`)
 }
 
 if (args.has('--reset')) await reset()
-const [existing] = await db.select({ id: saccos.id }).from(saccos).where(like(saccos.name, `${PREFIX} %`))
+const [existing] = await db
+  .select({ id: saccos.id })
+  .from(saccos)
+  .where(or(eq(saccos.name, SACCO_NAME), like(saccos.name, `${LEGACY_PREFIX} %`)))
 if (existing) {
   console.log('Demo data already exists. Run with --reset to recreate it.')
   process.exit(0)
 }
 
 // ---------- Organisations and places ----------
-const [sacco] = await db.insert(saccos).values({ name: `${PREFIX} Roysambu Boda SACCO`, county: 'Nairobi' }).returning()
+const [sacco] = await db.insert(saccos).values({ name: SACCO_NAME, county: 'Nairobi' }).returning()
 const stageRows = await db
   .insert(stages)
   .values([
-    { sacco_id: sacco!.id, name: `${PREFIX} Roysambu stage`, location: { x: PLACES.roysambu.lng, y: PLACES.roysambu.lat } },
-    { sacco_id: sacco!.id, name: `${PREFIX} Kahawa West stage`, location: { x: PLACES.kahawa.lng, y: PLACES.kahawa.lat } },
+    { sacco_id: sacco!.id, name: 'Roysambu stage', location: { x: PLACES.roysambu.lng, y: PLACES.roysambu.lat } },
+    { sacco_id: sacco!.id, name: 'Kahawa West stage', location: { x: PLACES.kahawa.lng, y: PLACES.kahawa.lat } },
   ])
   .returning()
 await db.insert(blackspots).values([
-  { name: 'Githurai 45 roundabout', location: { x: PLACES.githurai.lng, y: PLACES.githurai.lat }, radius_m: 250, weight: 1.5, source: 'demo (approximate location)' },
-  { name: 'Kasarani exit ramp', location: { x: PLACES.kasarani.lng, y: PLACES.kasarani.lat }, radius_m: 200, source: 'demo (approximate location)' },
+  { name: 'Githurai 45 roundabout', location: { x: PLACES.githurai.lng, y: PLACES.githurai.lat }, radius_m: 250, weight: 1.5, source: BLACKSPOT_SOURCE },
+  { name: 'Kasarani exit ramp', location: { x: PLACES.kasarani.lng, y: PLACES.kasarani.lat }, radius_m: 200, source: BLACKSPOT_SOURCE },
 ])
-const [insurer] = await db.insert(insurers).values({ name: `${PREFIX} Bima Bora Insurance` }).returning()
+const [insurer] = await db.insert(insurers).values({ name: INSURER_NAME }).returning()
 
 // ---------- Riding patterns ----------
 type Week = { brakes: number; corners: number; recordedShare: number; at: keyof typeof PLACES }
@@ -116,30 +124,34 @@ type Profile = {
   shares?: boolean
 }
 const profiles: Profile[] = [
+  // Careful all round.
   {
-    name: `${PREFIX} Careful Wanjiru`, sacco: true, shift: { startHourEat: 7, hours: 9 }, quote: 'quoted', shares: true,
+    name: 'Wanjiru Kamau', sacco: true, shift: { startHourEat: 7, hours: 9 }, quote: 'quoted', shares: true,
     week: (w) => ({ brakes: 0, corners: w % 4 === 1 ? 1 : 0, recordedShare: 1, at: 'roysambu' }),
   },
   {
     // Took the coaching: harsh braking at Githurai 45 falls week by week.
-    name: `${PREFIX} Evening Kevin`, sacco: true, shift: { startHourEat: 18, hours: 6 }, quote: 'pending', shares: true,
+    name: 'Kevin Omondi', sacco: true, shift: { startHourEat: 18, hours: 6 }, quote: 'pending', shares: true,
     week: (w, last) => ({ brakes: Math.max(1, 4 - Math.floor((w * 4) / (last + 1))), corners: 0, recordedShare: 0.95, at: 'githurai' }),
   },
+  // Night shifts near the Kasarani exit ramp.
   {
-    name: `${PREFIX} Night Otieno`, sacco: true, shift: { startHourEat: 18, hours: 8, rideOffsetHours: 3 }, shares: true,
+    name: 'Brian Otieno', sacco: true, shift: { startHourEat: 18, hours: 8, rideOffsetHours: 3 }, shares: true,
     week: (w) => ({ brakes: w % 4 === 2 ? 1 : 0, corners: 1, recordedShare: 0.9, at: 'kasarani' }),
   },
   {
     // Rides normally, then the last week records only the calm part of his shifts.
-    name: `${PREFIX} Gaming Mutua`, sacco: true, shift: { startHourEat: 7, hours: 10 }, quote: 'pending', shares: true,
+    name: 'Samuel Mutua', sacco: true, shift: { startHourEat: 7, hours: 10 }, quote: 'pending', shares: true,
     week: (w, last) => (w < last ? { brakes: 2, corners: 1, recordedShare: 1, at: 'githurai' } : { brakes: 0, corners: 0, recordedShare: 0.3, at: 'roysambu' }),
   },
+  // Harsh braking and sharp cornering every week.
   {
-    name: `${PREFIX} Risky Peter`, sacco: true, shift: { startHourEat: 9, hours: 9 },
+    name: 'Peter Wekesa', sacco: true, shift: { startHourEat: 9, hours: 9 },
     week: (w) => ({ brakes: 4 + (w % 2), corners: 3, recordedShare: 1, at: w % 2 ? 'kasarani' : 'githurai' }),
   },
+  // Not in a SACCO: no shift records, so confidence is capped.
   {
-    name: `${PREFIX} Independent Achieng`, sacco: false, shift: { startHourEat: 8, hours: 8 }, quote: 'pending', shares: true,
+    name: 'Grace Achieng', sacco: false, shift: { startHourEat: 8, hours: 8 }, quote: 'pending', shares: true,
     week: (w) => ({ brakes: w % 2, corners: (w + 1) % 2, recordedShare: 1, at: 'kahawa' }),
   },
 ]
