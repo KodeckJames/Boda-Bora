@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Badge, Card, CardTitle } from "@/components/ui";
-import { NotSignedInError } from "@/lib/api";
+import { NoRiderProfileError, NotSignedInError } from "@/lib/api";
 import { useI18n } from "@/lib/i18n/client";
-import { format } from "@/lib/i18n/config";
+import { format, withLocale } from "@/lib/i18n/config";
 import {
   RideRecorder,
   requestPermissions,
@@ -47,7 +48,8 @@ export function RideMode() {
   const [sessions, setSessions] = useState<RideSession[]>([]);
   const [pocket, setPocket] = useState(false);
   const [now, setNow] = useState(0); // set by the timer while recording
-  const [notSignedIn, setNotSignedIn] = useState(false);
+  // Why the last upload couldn't start: signed out, or no rider profile yet.
+  const [uploadBlock, setUploadBlock] = useState<"signin" | "profile" | null>(null);
   const recorder = useRef<RideRecorder | null>(null);
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -96,7 +98,10 @@ export function RideMode() {
 
   async function upload(id: string) {
     const result = await uploadSession(id);
-    setNotSignedIn(result?.status === "failed" && result.error === new NotSignedInError().message);
+    const error = result?.status === "failed" ? result.error : undefined;
+    setUploadBlock(
+      error === new NotSignedInError().message ? "signin" : error === new NoRiderProfileError().message ? "profile" : null,
+    );
     void refresh();
   }
 
@@ -217,7 +222,21 @@ export function RideMode() {
 
       <Card>
         <CardTitle>{r.savedTitle}</CardTitle>
-        {notSignedIn && <p className="mb-3 rounded-xl bg-warn/10 p-3 text-sm text-[#9a5d00]">{r.signInToUpload}</p>}
+        {uploadBlock && (
+          <p className="mb-3 rounded-xl bg-warn/10 p-3 text-sm text-[#9a5d00]">
+            {uploadBlock === "signin" ? r.signInToUpload : r.profileToUpload}{" "}
+            <Link
+              href={
+                uploadBlock === "signin"
+                  ? `${withLocale(locale, "/sign-in")}?next=${encodeURIComponent(withLocale(locale, "/rider/ride"))}`
+                  : withLocale(locale, "/onboarding")
+              }
+              className="font-semibold underline"
+            >
+              {uploadBlock === "signin" ? t.auth.signIn : r.finishProfile}
+            </Link>
+          </p>
+        )}
         {sessions.filter((x) => x.status !== "recording").length === 0 ? (
           <p className="py-4 text-center text-sm text-muted">{r.noShifts}</p>
         ) : (

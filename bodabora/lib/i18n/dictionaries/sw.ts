@@ -215,6 +215,8 @@ const sw: Dictionary = {
     noShifts: "Bado hakuna zamu.",
     upload: "Pakia",
     signInToUpload: "Ingia kwanza ili kupakia. Zamu yako imehifadhiwa kwenye simu hii.",
+    profileToUpload: "Weka wasifu wako wa mwendeshaji ili kupakia. Zamu yako imehifadhiwa kwenye simu hii.",
+    finishProfile: "Weka wasifu",
     status: {
       recording: "Inarekodi",
       pending: "Haijapakiwa",

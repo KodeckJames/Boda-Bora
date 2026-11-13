@@ -213,6 +213,8 @@ const en = {
     noShifts: "No shifts yet.",
     upload: "Upload",
     signInToUpload: "Sign in to upload. Your shift is saved on this phone.",
+    profileToUpload: "Set up your rider profile to upload. Your shift is saved on this phone.",
+    finishProfile: "Set up profile",
     status: {
       recording: "Recording",
       pending: "Not uploaded",

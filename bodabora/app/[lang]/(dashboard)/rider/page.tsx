@@ -54,7 +54,8 @@ async function RiderHome({ locale }: { locale: Locale }) {
   const meResult = await loadOr(getMe, { locale, t, next: here });
   if (!meResult.ok) return meResult.problem;
   const me = meResult.data;
-  if (!me.rider && me.profile.role && me.profile.role !== "rider") return <NotARider locale={locale} t={t} />;
+  // SACCO officials and insurers aren't riders. Admins can be: they set up a profile like anyone.
+  if (!me.rider && (me.profile.role === "sacco_admin" || me.profile.role === "insurer_analyst")) return <NotARider locale={locale} t={t} />;
   if (needsRiderProfile(me)) redirect(withLocale(locale, "/onboarding"));
 
   const result = await loadOr(() => loadRider(me, locale), { locale, t, next: here });

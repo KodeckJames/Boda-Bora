@@ -19,8 +19,8 @@ async function Form({ locale }: { locale: Locale }) {
   const result = await loadOr(getMe, { locale, t, next: withLocale(locale, "/onboarding") });
   if (!result.ok) return result.problem;
   const me = result.data;
-  // SACCO officials and insurers don't have a rider profile.
-  if (me.profile.role === "sacco_admin" || me.profile.role === "admin") redirect(withLocale(locale, "/sacco"));
+  // SACCO officials and insurers don't have a rider profile (platform admins may set one up).
+  if (me.profile.role === "sacco_admin") redirect(withLocale(locale, "/sacco"));
   if (me.profile.role === "insurer_analyst") redirect(withLocale(locale, "/insurer"));
   const o = t.onboarding;
   return (

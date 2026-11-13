@@ -20,7 +20,8 @@ async function MyWeek({ locale }: { locale: Locale }) {
   const meResult = await loadOr(getMe, { locale, t, next: here });
   if (!meResult.ok) return meResult.problem;
   const me = meResult.data;
-  if (!me.rider) redirect(withLocale(locale, me.profile.role && me.profile.role !== "rider" ? "/start" : "/onboarding"));
+  const staff = me.profile.role === "sacco_admin" || me.profile.role === "insurer_analyst";
+  if (!me.rider) redirect(withLocale(locale, staff ? "/start" : "/onboarding"));
   if (needsRiderProfile(me)) redirect(withLocale(locale, "/onboarding"));
   const id = me.rider.id;
 
