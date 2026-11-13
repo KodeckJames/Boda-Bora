@@ -11,6 +11,7 @@ import { audit } from '../lib/audit'
 import { requireUser } from '../lib/auth'
 import { activeConsentFor } from '../lib/consent'
 import { kenyanPhone } from '../lib/phone'
+import { bikePlate, fullName } from '../lib/plate'
 import { tierOf } from '../scoring/model'
 
 const ownRider = (access: Access) => {
@@ -18,11 +19,16 @@ const ownRider = (access: Access) => {
   return access.riderId
 }
 
+// Full name and number plate are the rider's identity on SACCO rosters and insurer quotes.
 const riderSignup = z.object({
-  name: z.string().trim().min(2).max(100),
+  name: fullName,
   phone: kenyanPhone,
-  bike_reg: z.string().trim().toUpperCase().max(20).optional(),
+  bike_reg: bikePlate,
 })
+// Riders can fix their name and plate later. The phone is fixed: SACCO shift records and USSD use it.
+const riderUpdate = z
+  .object({ name: fullName.optional(), bike_reg: bikePlate.optional() })
+  .refine((b) => b.name !== undefined || b.bike_reg !== undefined, { message: 'Nothing to update' })
 
 // The signed-in user: who they are, their role and what they can access.
 export const me = new Hono<AccessEnv>()
@@ -70,6 +76,12 @@ export const me = new Hono<AccessEnv>()
     })
     await audit(userId, 'rider.self_register', 'rider', rider.id)
     return c.json(rider, 201)
+  })
+  .patch('/rider', requireRole('rider'), rateLimit({ name: 'rider-update', max: 20, windowMs: DAY, by: 'user' }), validate('json', riderUpdate), async (c) => {
+    const riderId = ownRider(c.get('access'))
+    const [rider] = await db.update(riders).set(c.req.valid('json')).where(eq(riders.id, riderId)).returning()
+    await audit(c.get('user').userId, 'rider.update', 'rider', riderId, { fields: Object.keys(c.req.valid('json')) })
+    return c.json(rider)
   })
 
   // ---------- Sharing the score with insurers (rider-controlled) ----------

@@ -9,6 +9,7 @@ import { assertSacco, requireRole, withAccess, type AccessEnv } from '../lib/acc
 import { audit } from '../lib/audit'
 import { requireUser } from '../lib/auth'
 import { kenyanPhone, normaliseKenyanPhone } from '../lib/phone'
+import { bikePlate } from '../lib/plate'
 import { realtime } from '../lib/realtime'
 import { validate } from '../lib/validate'
 import { HOUR, rateLimit } from '../lib/rate-limit'
@@ -216,7 +217,7 @@ export const sacco = new Hono<AccessEnv>()
       z.object({
         name: z.string().trim().min(2).max(100),
         phone: kenyanPhone,
-        bike_reg: z.string().trim().toUpperCase().max(20).optional(),
+        bike_reg: bikePlate.optional(),
         stage_id: z.uuid().optional(),
         email: z.email().transform((e) => e.toLowerCase()).optional(),
       }),
