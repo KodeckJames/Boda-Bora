@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { UserMenu } from "@/components/user-menu";
 import { Button, Logo, ScoreBar, ScoreGauge } from "@/components/ui";
 import { privacyPolicy } from "@/lib/legal/privacy";
 import { termsOfService } from "@/lib/legal/terms";
@@ -18,7 +19,7 @@ export default async function Home() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <header className="flex h-16 items-center justify-between gap-3">
             <Logo dark href={href("/")} />
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3 sm:gap-6">
               <nav className="hidden gap-6 text-sm text-white/70 sm:flex">
                 <Link href={href("/rider")} className="hover:text-white">{t.nav.riders}</Link>
                 <Link href={href("/sacco")} className="hover:text-white">{t.nav.saccos}</Link>
@@ -26,6 +27,7 @@ export default async function Home() {
                 <Link href={href("/ussd")} className="hover:text-white">{t.nav.ussd}</Link>
               </nav>
               <LanguageSwitcher dark />
+              <UserMenu dark />
             </div>
           </header>
 

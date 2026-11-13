@@ -1,11 +1,12 @@
 // Boda Bora service worker: offline app shell + push notifications.
 // Bump VERSION to drop old caches after a deploy that changes cached assets.
-const VERSION = "v2";
+const VERSION = "v3";
 const SHELL_CACHE = `shell-${VERSION}`;
 const ASSET_CACHE = `assets-${VERSION}`;
 const LOCALES = ["en", "sw"];
-// Final URLs (not /rider, which redirects to a language) so cached pages can be served.
-const SHELL = LOCALES.flatMap((l) => [`/${l}/rider`, `/${l}/rider/ride`, `/${l}/offline`]);
+// Only public pages are precached. Rider pages need sign-in, so they're cached the first time
+// a signed-in rider opens them (see the fetch handler) and cleared again on sign-out.
+const SHELL = LOCALES.map((l) => `/${l}/offline`);
 
 // The offline page in the language of the requested URL.
 const offlineFor = (url) => {
@@ -48,8 +49,11 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(SHELL_CACHE).then((cache) => cache.put(request, copy));
+          // Skip redirects (e.g. signed out → sign-in) so a page is never cached under the wrong URL.
+          if (res.ok && !res.redirected) {
+            const copy = res.clone();
+            caches.open(SHELL_CACHE).then((cache) => cache.put(request, copy));
+          }
           return res;
         })
         .catch(async () => (await caches.match(request)) ?? caches.match(offlineFor(request.url))),

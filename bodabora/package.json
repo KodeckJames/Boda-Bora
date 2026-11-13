@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@neon/auth": "^0.8.2",
     "idb": "^8.0.4",
     "next": "16.4.3",
     "react": "19.3.0",

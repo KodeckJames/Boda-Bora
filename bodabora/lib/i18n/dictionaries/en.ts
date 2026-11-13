@@ -223,6 +223,18 @@ const en = {
     iosStep1: "1. Tap ⎋ Share at the bottom of Safari",
     iosStep2: "2. Choose “Add to Home Screen” ➕",
   },
+  auth: {
+    metaTitle: "Sign in",
+    title: "Sign in to Boda Bora",
+    body: "Riders, SACCO officials and insurers all sign in with Google. No password to remember.",
+    google: "Continue with Google",
+    redirecting: "Opening Google…",
+    error: "Sign-in didn't finish. Please try again.",
+    note: "We use your name and email only to link your rides, scores and SACCO to your account.",
+    signIn: "Sign in",
+    signOut: "Sign out",
+    account: "Account",
+  },
   offline: {
     metaTitle: "Offline",
     title: "You're offline",

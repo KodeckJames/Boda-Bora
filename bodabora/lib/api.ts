@@ -1,9 +1,14 @@
 // Client for the Boda Bora API (the Hono backend on Neon Functions).
+import { authClient } from "@/lib/auth/client";
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
-// TODO: return the Neon Auth JWT once rider sign-in is built (authClient.token()).
+// Short-lived (15 min) Neon Auth JWT for the signed-in user; the API verifies it against
+// the branch's JWKS. Null when signed out.
 export async function getToken(): Promise<string | null> {
-  return null;
+  const { data, error } = await authClient.token();
+  if (error || !data?.token) return null;
+  return data.token;
 }
 
 export class NotSignedInError extends Error {

@@ -225,6 +225,18 @@ const sw: Dictionary = {
     iosStep1: "1. Bonyeza ⎋ Share chini ya Safari",
     iosStep2: "2. Chagua “Add to Home Screen” ➕",
   },
+  auth: {
+    metaTitle: "Ingia",
+    title: "Ingia kwenye Boda Bora",
+    body: "Waendeshaji, maafisa wa SACCO na bima wote huingia kwa Google. Hakuna nenosiri la kukumbuka.",
+    google: "Endelea na Google",
+    redirecting: "Inafungua Google…",
+    error: "Kuingia hakukukamilika. Tafadhali jaribu tena.",
+    note: "Tunatumia jina na barua pepe yako tu kuunganisha safari, alama na SACCO yako na akaunti yako.",
+    signIn: "Ingia",
+    signOut: "Toka",
+    account: "Akaunti",
+  },
   offline: {
     metaTitle: "Hakuna mtandao",
     title: "Hakuna mtandao",

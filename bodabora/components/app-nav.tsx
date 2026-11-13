@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { withLocale } from "@/lib/i18n/config";
 import { useI18n } from "@/lib/i18n/client";
 import { LanguageSwitcher } from "./language-switcher";
+import { UserMenu } from "./user-menu";
 import { Logo } from "./ui";
 
 const links = [
@@ -40,6 +41,7 @@ export function AppNav() {
             })}
           </nav>
           <LanguageSwitcher />
+          <UserMenu />
         </div>
       </div>
     </header>

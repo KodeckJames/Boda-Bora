@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { auth } from "@/lib/auth/server";
 import { defaultLocale, hasLocale, LOCALE_COOKIE, type Locale } from "@/lib/i18n/config";
 
 // Picks the language for URLs without one: the user's saved choice, else the browser's
@@ -16,12 +17,32 @@ function preferredLocale(request: NextRequest): Locale {
   return ranked.find((r) => hasLocale(r.lang))?.lang as Locale | undefined ?? defaultLocale;
 }
 
-export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+// Pages that need a signed-in user (path after the locale). The live-scoring demo stays public.
+const PROTECTED = ["/rider", "/sacco", "/insurer"];
+const PUBLIC_EXCEPTIONS = ["/rider/live"];
+const under = (path: string, prefix: string) => path === prefix || path.startsWith(`${prefix}/`);
+const isProtectedPath = (path: string) =>
+  PROTECTED.some((p) => under(path, p)) && !PUBLIC_EXCEPTIONS.some((p) => under(path, p));
+
+// Google sign-in comes back with ?neon_auth_session_verifier=…, which the auth middleware
+// swaps for the session cookie.
+const OAUTH_VERIFIER = "neon_auth_session_verifier";
+
+export async function proxy(request: NextRequest) {
+  const { pathname, search, searchParams } = request.nextUrl;
   const first = pathname.split("/")[1] ?? "";
-  if (hasLocale(first)) return;
-  request.nextUrl.pathname = `/${preferredLocale(request)}${pathname === "/" ? "" : pathname}`;
-  return NextResponse.redirect(request.nextUrl);
+  if (!hasLocale(first)) {
+    request.nextUrl.pathname = `/${preferredLocale(request)}${pathname === "/" ? "" : pathname}`;
+    return NextResponse.redirect(request.nextUrl);
+  }
+
+  const rest = pathname.slice(first.length + 1) || "/";
+  const protectedPage = isProtectedPath(rest);
+  if (!protectedPage && !searchParams.has(OAUTH_VERIFIER)) return;
+
+  // Signed out on a protected page → /{lang}/sign-in?next=<where they were going>.
+  const loginUrl = `/${first}/sign-in?next=${encodeURIComponent(pathname + search)}`;
+  return auth.middleware({ loginUrl, publicRoutes: protectedPage ? [] : [pathname] })(request);
 }
 
 export const config = {
