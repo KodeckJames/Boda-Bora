@@ -6,7 +6,7 @@ import { HTTPException } from 'hono/http-exception'
 import { z } from 'zod'
 import { db } from '../db/client'
 import { consents, insurers, profiles, quote_requests, rider_scores_current, riders } from '../db/schema'
-import { requireRole, withAccess, type Access, type AccessEnv } from '../lib/access'
+import { requireRider, withAccess, type Access, type AccessEnv } from '../lib/access'
 import { audit } from '../lib/audit'
 import { requireUser } from '../lib/auth'
 import { activeConsentFor } from '../lib/consent'
@@ -39,7 +39,7 @@ export const me = new Hono<AccessEnv>()
       ? (await db.select().from(riders).where(eq(riders.id, riderId)))[0] ?? null
       : null
     return c.json({ profile, rider, sacco_ids: saccoIds, insurer_ids: insurerIds })
-  })
+ })
   // Preferences: the language the app, coaching (and later USSD and SMS) use for this user.
   .patch('/', validate('json', z.object({ language: z.enum(['en', 'sw']) })), async (c) => {
     const { language } = c.req.valid('json')
@@ -49,44 +49,44 @@ export const me = new Hono<AccessEnv>()
       .where(eq(profiles.user_id, c.get('access').profile.user_id))
       .returning()
     return c.json({ profile })
-  })
+ })
   // Self-registration for riders who aren't with a SACCO yet. SACCO-registered riders are
   // linked by invite instead, so nobody can claim another rider's record by typing their phone.
   .post('/rider', rateLimit({ name: 'rider-signup', max: 5, windowMs: DAY, by: 'user' }), validate('json', riderSignup), async (c) => {
     const access = c.get('access')
     if (access.riderId) throw new HTTPException(409, { message: 'You are already registered as a rider' })
-    if (access.profile.role && access.profile.role !== 'rider') {
+    if (access.profile.role === 'sacco_admin' || access.profile.role === 'insurer_analyst') {
       throw new HTTPException(409, { message: `Your account is a ${access.profile.role} account` })
-    }
+   }
     const body = c.req.valid('json')
     const [taken] = await db.select({ id: riders.id }).from(riders).where(eq(riders.phone, body.phone))
     if (taken) {
       throw new HTTPException(409, {
         message: 'This phone number is already registered. Ask your SACCO to invite your Google account.',
-      })
-    }
+     })
+   }
     const userId = access.profile.user_id
     const rider = await db.transaction(async (tx) => {
-      await tx.update(profiles).set({ role: 'rider' }).where(eq(profiles.user_id, userId))
+      if (!access.profile.role) await tx.update(profiles).set({ role: 'rider' }).where(eq(profiles.user_id, userId))
       const [row] = await tx
         .insert(riders)
         .values({ user_id: userId, name: body.name, phone: body.phone, bike_reg: body.bike_reg })
         .returning()
       return row!
-    })
+   })
     await audit(userId, 'rider.self_register', 'rider', rider.id)
     return c.json(rider, 201)
-  })
-  .patch('/rider', requireRole('rider'), rateLimit({ name: 'rider-update', max: 20, windowMs: DAY, by: 'user' }), validate('json', riderUpdate), async (c) => {
+ })
+  .patch('/rider', requireRider, rateLimit({ name: 'rider-update', max: 20, windowMs: DAY, by: 'user' }), validate('json', riderUpdate), async (c) => {
     const riderId = ownRider(c.get('access'))
     const [rider] = await db.update(riders).set(c.req.valid('json')).where(eq(riders.id, riderId)).returning()
     await audit(c.get('user').userId, 'rider.update', 'rider', riderId, { fields: Object.keys(c.req.valid('json')) })
     return c.json(rider)
-  })
+ })
 
   // ---------- Sharing the score with insurers (rider-controlled) ----------
 
-  .get('/consents', requireRole('rider'), async (c) => {
+  .get('/consents', requireRider, async (c) => {
     const riderId = ownRider(c.get('access'))
     return c.json(
       await db
@@ -96,20 +96,20 @@ export const me = new Hono<AccessEnv>()
         .where(eq(consents.rider_id, riderId))
         .orderBy(desc(consents.granted_at)),
     )
-  })
+ })
   // insurer_id omitted = share with any partner insurer.
-  .post('/consents', requireRole('rider'), rateLimit({ name: 'consents', max: 20, windowMs: DAY, by: 'user' }), validate('json', z.object({ insurer_id: z.uuid().optional() })), async (c) => {
+  .post('/consents', requireRider, rateLimit({ name: 'consents', max: 20, windowMs: DAY, by: 'user' }), validate('json', z.object({ insurer_id: z.uuid().optional() })), async (c) => {
     const riderId = ownRider(c.get('access'))
     const { insurer_id } = c.req.valid('json')
     if (insurer_id) {
       const [ins] = await db.select({ id: insurers.id }).from(insurers).where(eq(insurers.id, insurer_id))
       if (!ins) throw new HTTPException(404, { message: 'Insurer not found' })
-    }
+   }
     const [row] = await db.insert(consents).values({ rider_id: riderId, insurer_id: insurer_id ?? null }).returning()
     await audit(c.get('user').userId, 'consent.grant', 'rider', riderId, { insurer_id: insurer_id ?? 'any' })
     return c.json(row, 201)
-  })
-  .delete('/consents/:id', requireRole('rider'), validate('param', z.object({ id: z.uuid() })), async (c) => {
+ })
+  .delete('/consents/:id', requireRider, validate('param', z.object({ id: z.uuid() })), async (c) => {
     const riderId = ownRider(c.get('access'))
     const [row] = await db
       .update(consents)
@@ -119,9 +119,9 @@ export const me = new Hono<AccessEnv>()
     if (!row) throw new HTTPException(404, { message: 'Active consent not found' })
     await audit(c.get('user').userId, 'consent.revoke', 'rider', riderId, { consent_id: row.id })
     return c.json({ ok: true })
-  })
+ })
 
-  .get('/quotes', requireRole('rider'), async (c) => {
+  .get('/quotes', requireRider, async (c) => {
     const riderId = ownRider(c.get('access'))
     return c.json(
       await db
@@ -133,16 +133,16 @@ export const me = new Hono<AccessEnv>()
           premium_ksh: quote_requests.premium_ksh,
           created_at: quote_requests.created_at,
           decided_at: quote_requests.decided_at,
-        })
+       })
         .from(quote_requests)
         .innerJoin(insurers, eq(insurers.id, quote_requests.insurer_id))
         .where(eq(quote_requests.rider_id, riderId))
         .orderBy(desc(quote_requests.created_at)),
     )
-  })
+ })
   // Ask an insurer for a quote. Needs consent for that insurer and a current score, which is
   // snapshotted so the decision is made on the score the rider saw.
-  .post('/quotes', requireRole('rider'), rateLimit({ name: 'quotes', max: 10, windowMs: DAY, by: 'user' }), validate('json', z.object({ insurer_id: z.uuid() })), async (c) => {
+  .post('/quotes', requireRider, rateLimit({ name: 'quotes', max: 10, windowMs: DAY, by: 'user' }), validate('json', z.object({ insurer_id: z.uuid() })), async (c) => {
     const riderId = ownRider(c.get('access'))
     const { insurer_id } = c.req.valid('json')
     const [consent] = await db.select({ id: consents.id }).from(consents).where(activeConsentFor(riderId, insurer_id))
@@ -165,8 +165,8 @@ export const me = new Hono<AccessEnv>()
       acceleration: score.acceleration,
       night_exposure: score.night_exposure,
       route_risk: score.route_risk,
-    }
+   }
     const [row] = await db.insert(quote_requests).values({ rider_id: riderId, insurer_id, score_snapshot: snapshot }).returning()
     await audit(c.get('user').userId, 'quote.request', 'rider', riderId, { insurer_id })
     return c.json(row, 201)
-  })
+ })

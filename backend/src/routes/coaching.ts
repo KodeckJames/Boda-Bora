@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { coachRider } from '../coaching/run'
 import { db } from '../db/client'
 import { coaching_messages } from '../db/schema'
-import { assertCanViewRider, requireRole, withAccess, type Access, type AccessEnv } from '../lib/access'
+import { assertCanViewRider, requireRider, requireRole, withAccess, type Access, type AccessEnv } from '../lib/access'
 import { audit } from '../lib/audit'
 import { requireUser } from '../lib/auth'
 import { HOUR, rateLimit } from '../lib/rate-limit'
@@ -31,7 +31,7 @@ const history = async (riderId: string, limit: number, language: Language) => {
       source: coaching_messages.source,
       status: coaching_messages.status,
       created_at: coaching_messages.created_at,
-    })
+   })
     .from(coaching_messages)
     .where(eq(coaching_messages.rider_id, riderId))
     .orderBy(desc(coaching_messages.created_at))
@@ -40,20 +40,20 @@ const history = async (riderId: string, limit: number, language: Language) => {
     ...m,
     language,
     message: language === 'en' ? message_en : message_sw,
-  }))
+ }))
 }
 
 // Weekly coaching in English or Kiswahili (written by the jobs function every Sunday evening).
 export const coaching = new Hono<AccessEnv>()
   .use(requireUser, withAccess)
   // The signed-in rider's latest message and recent history.
-  .get('/me', requireRole('rider'), langQuery, async (c) => {
+  .get('/me', requireRider, langQuery, async (c) => {
     const access = c.get('access')
     if (!access.riderId) throw new HTTPException(409, { message: 'Finish rider registration first' })
     const messages = await history(access.riderId, 10, languageFor(access, c.req.valid('query').lang))
     return c.json({ latest: messages[0] ?? null, history: messages })
-  })
-  .post('/me/:id/read', requireRole('rider'), validate('param', z.object({ id: z.uuid() })), async (c) => {
+ })
+  .post('/me/:id/read', requireRider, validate('param', z.object({ id: z.uuid() })), async (c) => {
     const riderId = c.get('access').riderId
     if (!riderId) throw new HTTPException(409, { message: 'Finish rider registration first' })
     const [row] = await db
@@ -63,7 +63,7 @@ export const coaching = new Hono<AccessEnv>()
       .returning({ id: coaching_messages.id })
     if (!row) throw new HTTPException(404, { message: 'Message not found' })
     return c.json({ ok: true })
-  })
+ })
   // SACCO admins (their riders) and admins: a rider's coaching history.
   .get('/riders/:riderId', requireRole('sacco_admin', 'admin'), riderParam, langQuery, async (c) => {
     const { riderId } = c.req.valid('param')
@@ -71,7 +71,7 @@ export const coaching = new Hono<AccessEnv>()
     await assertCanViewRider(access, riderId)
     await audit(c.get('user').userId, 'coaching.view', 'rider', riderId)
     return c.json(await history(riderId, 20, languageFor(access, c.req.valid('query').lang)))
-  })
+ })
   // Regenerate this week's message now (e.g. after new uploads).
   .post(
     '/riders/:riderId/generate',
@@ -88,5 +88,5 @@ export const coaching = new Hono<AccessEnv>()
       await audit(c.get('user').userId, 'coaching.generate', 'rider', riderId, { source: result.source })
       const [latest] = await history(riderId, 1, languageFor(access, c.req.valid('query').lang))
       return c.json({ ...result, message: latest }, 201)
-    },
+   },
   )

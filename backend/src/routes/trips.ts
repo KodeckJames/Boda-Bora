@@ -3,7 +3,7 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { db } from '../db/client'
 import { upload_batches } from '../db/schema'
-import { requireRole, withAccess, type AccessEnv } from '../lib/access'
+import { requireRider, withAccess, type AccessEnv } from '../lib/access'
 import { requireUser } from '../lib/auth'
 import { notImplemented } from '../lib/errors'
 import { traces } from '../lib/storage'
@@ -12,7 +12,7 @@ import { traces } from '../lib/storage'
 // with a presigned URL; the `ingest` function processes it when the object lands.
 export const trips = new Hono<AccessEnv>()
   .use(requireUser, withAccess)
-  .post('/uploads', requireRole('rider'), rateLimit({ name: 'uploads', max: 30, windowMs: HOUR, by: 'user' }), async (c) => {
+  .post('/uploads', requireRider, rateLimit({ name: 'uploads', max: 30, windowMs: HOUR, by: 'user' }), async (c) => {
     const riderId = c.get('access').riderId
     if (!riderId) throw new HTTPException(409, { message: 'Finish rider registration first' })
     const key = `batches/${riderId}/${crypto.randomUUID()}.ndjson.gz`
@@ -20,5 +20,5 @@ export const trips = new Hono<AccessEnv>()
     await db.insert(upload_batches).values({ rider_id: riderId, object_key: key })
     const upload = await traces.signedUploadUrl(key, { expiresIn: 600 })
     return c.json({ key, upload }, 201)
-  })
+ })
   .get('/:id', notImplemented) // single trip detail

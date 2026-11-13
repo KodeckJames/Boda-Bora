@@ -28,7 +28,11 @@ async function acceptInvites(userId: string, email: string) {
     .where(and(eq(invites.email, email), isNull(invites.accepted_at)))
   for (const inv of pending) {
     await db.transaction(async (tx) => {
-      await tx.update(profiles).set({ role: inv.role }).where(eq(profiles.user_id, userId))
+      // Staff invites set the role; a rider invite never demotes an admin or SACCO/insurer staff.
+      await tx
+        .update(profiles)
+        .set({ role: inv.role })
+        .where(inv.role === 'rider' ? and(eq(profiles.user_id, userId), isNull(profiles.role)) : eq(profiles.user_id, userId))
       if (inv.sacco_id && inv.role === 'sacco_admin') {
         await tx.insert(memberships).values({ user_id: userId, sacco_id: inv.sacco_id }).onConflictDoNothing()
       }
@@ -36,10 +40,14 @@ async function acceptInvites(userId: string, email: string) {
         await tx.insert(memberships).values({ user_id: userId, insurer_id: inv.insurer_id }).onConflictDoNothing()
       }
       if (inv.rider_id && inv.role === 'rider') {
-        await tx
-          .update(riders)
-          .set({ user_id: userId })
-          .where(and(eq(riders.id, inv.rider_id), isNull(riders.user_id)))
+        // One rider record per account: someone who already registered keeps their own.
+        const [own] = await tx.select({ id: riders.id }).from(riders).where(eq(riders.user_id, userId))
+        if (!own) {
+          await tx
+            .update(riders)
+            .set({ user_id: userId })
+            .where(and(eq(riders.id, inv.rider_id), isNull(riders.user_id)))
+        }
       }
       // A SACCO inviting a rider who registered on their own: joining happens only when the
       // rider signs in, so a SACCO can't claim someone's data just by knowing their phone.
@@ -97,6 +105,13 @@ export const requireRole = (...roles: Role[]) =>
     }
     await next()
   })
+
+// Routes about the caller's own rider record (uploads, coaching, sharing, quotes). Checks for the
+// record, not the role: a platform admin can also be a rider. Ownership comes from riders.user_id.
+export const requireRider = createMiddleware<AccessEnv>(async (c, next) => {
+  if (!c.get('access').riderId) throw new HTTPException(409, { message: 'Finish rider registration first' })
+  await next()
+})
 
 // Throws unless the caller administers this SACCO (admins see everything).
 export function assertSacco(access: Access, saccoId: string) {
