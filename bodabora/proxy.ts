@@ -18,7 +18,7 @@ function preferredLocale(request: NextRequest): Locale {
 }
 
 // Pages that need a signed-in user (path after the locale). The live-scoring demo stays public.
-const PROTECTED = ["/rider", "/sacco", "/insurer"];
+const PROTECTED = ["/start", "/onboarding", "/rider", "/sacco", "/insurer"];
 const PUBLIC_EXCEPTIONS = ["/rider/live"];
 const under = (path: string, prefix: string) => path === prefix || path.startsWith(`${prefix}/`);
 const isProtectedPath = (path: string) =>

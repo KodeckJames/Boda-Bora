@@ -7,8 +7,9 @@ import { withLocale, type Locale } from "@/lib/i18n/config";
 import { useI18n } from "@/lib/i18n/client";
 
 // Only same-site paths, so ?next= can't send someone to another origin after sign-in.
+// Without one, /start sends each user to their own home (onboarding, rider app, SACCO or insurer).
 function safeNext(next: string | null, locale: Locale) {
-  const fallback = withLocale(locale, "/rider");
+  const fallback = withLocale(locale, "/start");
   if (!next || !next.startsWith("/") || next.startsWith("//") || next.includes("\\")) return fallback;
   return next;
 }
