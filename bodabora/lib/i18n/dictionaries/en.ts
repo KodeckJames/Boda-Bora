@@ -65,7 +65,7 @@ const en = {
     heroBody:
       "Kenya's insurers price every boda rider as reckless, so careful riders go uninsured. Boda Bora measures real riding behaviour from the phone in their pocket and turns it into a score insurers can trust.",
     ctaRider: "See the rider app",
-    ctaLive: "Live sensor demo",
+    ctaLive: "Try the live sensors",
     weeklyAdvice: "This week's advice",
     stats: [
       { value: "5,000+", body: "road deaths in Kenya every year, with bodas a disproportionate share." },
@@ -137,7 +137,7 @@ const en = {
     whyBody: "Built from your own week: where and when your risk concentrated.",
     weekLink: "Week trace walkthrough →",
     weekLinkBody: "Map, risk events and hour-by-hour risk behind your score.",
-    liveLink: "Live sensor demo →",
+    liveLink: "Live sensors →",
     liveLinkBody: "Shake the phone and watch events register in real time.",
   },
   week: {
@@ -161,8 +161,8 @@ const en = {
     regenerate: "Write again",
   },
   live: {
-    metaTitle: "Live sensor demo",
-    eyebrow: "Live demo",
+    metaTitle: "Live sensors",
+    eyebrow: "Live sensors",
     title: "Watch the score react",
     description:
       "The phone sits loose in a pocket with no fixed mount. Sensor fusion re-orients the signal, then braking, cornering and acceleration events feed straight into the score.",

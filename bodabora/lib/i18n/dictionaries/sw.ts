@@ -67,7 +67,7 @@ const sw: Dictionary = {
     heroBody:
       "Kampuni za bima nchini Kenya huwatoza waendeshaji wote wa boda kana kwamba ni wazembe, hivyo waendeshaji makini hukosa bima. Boda Bora hupima uendeshaji halisi kupitia simu iliyo mfukoni na kuugeuza kuwa alama ambayo kampuni za bima zinaweza kuiamini.",
     ctaRider: "Tazama app ya mwendeshaji",
-    ctaLive: "Onyesho la vihisi",
+    ctaLive: "Jaribu vihisi moja kwa moja",
     weeklyAdvice: "Ushauri wa wiki",
     stats: [
       { value: "5,000+", body: "vifo vya barabarani nchini Kenya kila mwaka, na boda boda zikiwa sehemu kubwa." },
@@ -139,7 +139,7 @@ const sw: Dictionary = {
     whyBody: "Umetokana na wiki yako mwenyewe: mahali na saa ambapo hatari yako ilikuwa.",
     weekLink: "Pitia safari za wiki →",
     weekLinkBody: "Ramani, matukio ya hatari na hatari ya kila saa nyuma ya alama yako.",
-    liveLink: "Onyesho la vihisi →",
+    liveLink: "Vihisi moja kwa moja →",
     liveLinkBody: "Tikisa simu na uone matukio yakirekodiwa papo hapo.",
   },
   week: {
@@ -163,8 +163,8 @@ const sw: Dictionary = {
     regenerate: "Andika upya",
   },
   live: {
-    metaTitle: "Onyesho la vihisi",
-    eyebrow: "Onyesho la moja kwa moja",
+    metaTitle: "Vihisi moja kwa moja",
+    eyebrow: "Vihisi moja kwa moja",
     title: "Tazama alama ikibadilika",
     description:
       "Simu iko mfukoni bila kishikilio. Vihisi husawazishwa upya, kisha breki, kona na kuongeza mwendo huingia moja kwa moja kwenye alama.",
