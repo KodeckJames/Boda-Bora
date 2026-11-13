@@ -36,3 +36,23 @@ body {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* Text inputs across the app's forms. */
+@utility input {
+  display: block;
+  width: 100%;
+  height: 2.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 0 0.875rem;
+  font-size: 1rem;
+  outline: none;
+  &:focus {
+    border-color: var(--ink);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--hivis) 45%, transparent);
+  }
+  &[aria-invalid="true"] {
+    border-color: var(--danger);
+  }
+}

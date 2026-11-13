@@ -1,5 +1,5 @@
+import type { EventType, LineString, Severity } from "@/lib/api/types";
 import type { Dictionary } from "@/lib/i18n/dictionaries/en";
-import { blackspots, type RiskEvent } from "@/lib/mock-data";
 
 // Labels come from the caller's dictionary so charts render in the active language.
 type ChartLabels = Dictionary["charts"] & {
@@ -15,46 +15,75 @@ const severityColor = {
   high: "var(--danger)",
 };
 
-// Stylised map of the Thika Road corridor. Swap for a real map (Leaflet/Mapbox) once traces exist.
-export function RouteMap({ events, labels }: { events: RiskEvent[]; labels: ChartLabels }) {
+export type MapEvent = { id: string; type: EventType; severity: Severity; lat: number; lng: number; label: string };
+
+const MAX_POINTS_PER_TRIP = 300;
+
+// The week's recorded routes and where risk events happened, drawn to scale (no map tiles,
+// so it works offline and costs nothing). Longitude is scaled by cos(latitude).
+export function TraceMap({ paths, events, labels }: { paths: LineString[]; events: MapEvent[]; labels: ChartLabels }) {
+  const lines = paths.map((p) => {
+    const step = Math.max(1, Math.ceil(p.coordinates.length / MAX_POINTS_PER_TRIP));
+    return p.coordinates.filter((_, i) => i % step === 0 || i === p.coordinates.length - 1);
+  });
+  const all = [...lines.flat(), ...events.map((e) => [e.lng, e.lat] as [number, number])];
+  if (all.length === 0) {
+    return (
+      <div className="grid h-72 place-items-center rounded-xl bg-[#eef0ea] px-6 text-center text-sm text-muted">{labels.noRoutes}</div>
+    );
+  }
+
+  const lats = all.map((c) => c[1]);
+  const lngs = all.map((c) => c[0]);
+  const midLat = ((Math.min(...lats) + Math.max(...lats)) / 2) * (Math.PI / 180);
+  const xOf = (lng: number) => lng * Math.cos(midLat);
+  const minX = Math.min(...lngs.map(xOf));
+  const maxX = Math.max(...lngs.map(xOf));
+  const minY = Math.min(...lats);
+  const maxY = Math.max(...lats);
+  // At least ~200 m across, so a single point or a short trip doesn't fill the box.
+  const span = Math.max(maxX - minX, maxY - minY, 0.002);
+  const W = 100;
+  const H = 60;
+  const scale = (Math.min(W, H) * 0.86) / span;
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const px = (lng: number) => W / 2 + (xOf(lng) - cx) * scale;
+  const py = (lat: number) => H / 2 - (lat - cy) * scale;
+
   return (
     <div className="relative overflow-hidden rounded-xl bg-[#eef0ea]">
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-72 w-full">
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-72 w-full" role="img" aria-label={labels.routeMap}>
         <defs>
-          <pattern id="grid" width="8" height="8" patternUnits="userSpaceOnUse">
-            <path d="M8 0H0V8" fill="none" stroke="#dfe2da" strokeWidth="0.3" />
+          <pattern id="grid" width="5" height="5" patternUnits="userSpaceOnUse">
+            <path d="M5 0H0V5" fill="none" stroke="#dfe2da" strokeWidth="0.15" />
           </pattern>
         </defs>
-        <rect width="100" height="100" fill="url(#grid)" />
-        {/* Side roads */}
-        <path d="M46 50 L40 30 L44 10" fill="none" stroke="#fff" strokeWidth="2" />
-        <path d="M58 36 L70 50 L86 56" fill="none" stroke="#fff" strokeWidth="2" />
-        <path d="M34 60 L22 48 L8 44" fill="none" stroke="#fff" strokeWidth="2" />
-        {/* Thika Road */}
-        <path d="M4 92 L16 78 L34 60 L46 50 L58 36 L74 22 L96 6" fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round" />
-        <path d="M4 92 L16 78 L34 60 L46 50 L58 36 L74 22 L96 6" fill="none" stroke="var(--hivis)" strokeWidth="1.2" strokeLinecap="round" strokeDasharray="2 1.5" />
-        {blackspots.map((b) => (
-          <circle key={b.name} cx={b.x} cy={b.y} r="6" fill="var(--danger)" fillOpacity="0.1" stroke="var(--danger)" strokeOpacity="0.35" strokeWidth="0.3" />
+        <rect width={W} height={H} fill="url(#grid)" />
+        {lines.map((coords, i) => (
+          <polyline
+            key={i}
+            points={coords.map(([lng, lat]) => `${px(lng).toFixed(2)},${py(lat).toFixed(2)}`).join(" ")}
+            fill="none"
+            stroke="var(--ink)"
+            strokeOpacity="0.55"
+            strokeWidth="0.6"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+        ))}
+        {events.map((e) => (
+          <circle key={e.id} cx={px(e.lng)} cy={py(e.lat)} r="1.3" fill={severityColor[e.severity]} stroke="#fff" strokeWidth="0.4">
+            <title>{e.label}</title>
+          </circle>
         ))}
       </svg>
-      {/* Event pins rendered as HTML so they stay round with preserveAspectRatio="none" */}
-      {events.map((e) => (
-        <span
-          key={e.id}
-          title={`${labels.events[e.type]} · ${labels.days[e.day]} ${e.time} · ${e.place}`}
-          className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
-          style={{ left: `${e.x}%`, top: `${e.y}%`, background: severityColor[e.severity] }}
-        />
-      ))}
-      <div className="absolute left-3 top-3 rounded-md bg-white/90 px-2 py-1 text-[11px] font-medium text-muted">
-        {labels.corridor}
-      </div>
       <div className="absolute bottom-3 right-3 flex gap-3 rounded-md bg-white/90 px-2.5 py-1.5 text-[11px] text-muted">
         <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-danger" /> {labels.event}
+          <span className="h-0.5 w-3 rounded bg-ink/60" /> {labels.route}
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2.5 w-2.5 rounded-full border border-danger/40 bg-danger/10" /> {labels.blackspot}
+          <span className="h-2 w-2 rounded-full bg-danger" /> {labels.event}
         </span>
       </div>
     </div>
@@ -97,13 +126,16 @@ export function RiskHeatmap({ data, labels }: { data: number[][]; labels: ChartL
 
 export function CoverageBars({ data, labels }: { data: { day: number; shift: number; traced: number }[]; labels: ChartLabels }) {
   const max = Math.max(...data.map((d) => d.shift));
+  if (!(max > 0)) {
+    return <p className="grid h-40 place-items-center rounded-xl bg-black/3 px-6 text-center text-sm text-muted">{labels.noShifts}</p>;
+  }
   return (
     <div>
       <div className="flex h-40 items-end gap-3">
         {data.map((d) => (
           <div key={d.day} className="flex flex-1 flex-col items-center gap-1.5">
             <div className="relative w-full max-w-10 rounded-md bg-black/6" style={{ height: `${(d.shift / max) * 136}px` }}>
-              <div className="absolute inset-x-0 bottom-0 rounded-md bg-ink" style={{ height: `${(d.traced / d.shift) * 100}%` }} />
+              <div className="absolute inset-x-0 bottom-0 rounded-md bg-ink" style={{ height: `${d.shift > 0 ? Math.min(100, (d.traced / d.shift) * 100) : 0}%` }} />
             </div>
             <span className="text-xs text-muted">{labels.days[d.day]}</span>
           </div>
@@ -118,7 +150,7 @@ export function CoverageBars({ data, labels }: { data: { day: number; shift: num
 }
 
 export function Histogram({ data }: { data: { bucket: string; count: number }[] }) {
-  const max = Math.max(...data.map((d) => d.count));
+  const max = Math.max(1, ...data.map((d) => d.count));
   return (
     <div>
       <div className="flex h-44 items-end gap-2">
