@@ -3,27 +3,58 @@
 //
 //   bun --env-file=.env.dev scripts/seed-demo.ts            seed the dev branch
 //   bun --env-file=.env.dev scripts/seed-demo.ts --reset    remove the demo data first
+//   --weeks 8                       weeks of history (default 8)
+//   --link-email you@example.com    also give this Google account its own demo rider with
+//   --link-name "First Last"        months of history (linked the next time it signs in)
 //   add --production to run against the production branch (refused otherwise)
+//
+// Pass emails and names on the command line only: this file is public.
 import { gzipSync } from 'node:zlib'
-import { eq, inArray, like } from 'drizzle-orm'
+import { eq, inArray, like, or } from 'drizzle-orm'
 import { coachRider } from '../src/coaching/run'
 import { db } from '../src/db/client'
-import { blackspots, consents, insurers, quote_requests, riders, saccos, shifts, stages, upload_batches } from '../src/db/schema'
+import {
+  blackspots,
+  consents,
+  insurers,
+  invites,
+  quote_requests,
+  rider_scores_current,
+  riders,
+  saccos,
+  shifts,
+  stages,
+  upload_batches,
+} from '../src/db/schema'
 import { simulateRide, type Phase } from '../src/dev/simulate'
 import { processUpload } from '../src/ingest/process'
 import { traces } from '../src/lib/storage'
 import { tierOf, weekOf } from '../src/scoring/model'
 import { scoreRiderWeek } from '../src/scoring/run'
 
-const args = new Set(process.argv.slice(2))
+const argv = process.argv.slice(2)
+const args = new Set(argv)
+const option = (name: string) => {
+  const i = argv.indexOf(name)
+  return i >= 0 ? argv[i + 1] : undefined
+}
 if (process.env.NEON_BRANCH === 'production' && !args.has('--production')) {
   console.error('Refusing to seed the production branch. Pass --production if you really mean it.')
+  process.exit(1)
+}
+const WEEKS = Math.max(2, Math.min(16, Number(option('--weeks') ?? 8)))
+const linkEmail = option('--link-email')?.trim().toLowerCase()
+const linkName = option('--link-name')?.trim()
+if (linkEmail && (!linkName || linkName.split(/\s+/).length < 2)) {
+  console.error('--link-email needs --link-name "First Last"')
   process.exit(1)
 }
 
 const H = 3600_000
 const D = 24 * H
 const PREFIX = 'DEMO'
+const PHONE_PREFIX = '+2547000000' // every demo rider's phone starts with this (used by --reset)
+const SEED_INVITER = 'seed-demo'
 
 // Approximate Thika Road corridor locations, for demo maps only.
 const PLACES = {
@@ -34,11 +65,15 @@ const PLACES = {
 }
 
 async function reset() {
-  const demoRiders = await db.select({ id: riders.id }).from(riders).where(like(riders.name, `${PREFIX} %`))
+  const demoRiders = await db
+    .select({ id: riders.id })
+    .from(riders)
+    .where(or(like(riders.name, `${PREFIX} %`), like(riders.phone, `${PHONE_PREFIX}%`)))
   const ids = demoRiders.map((r) => r.id)
   if (ids.length) {
     const keys = await db.select({ k: upload_batches.object_key }).from(upload_batches).where(inArray(upload_batches.rider_id, ids))
     for (const { k } of keys) await traces.delete(k).catch(() => {})
+    await db.delete(invites).where(or(inArray(invites.rider_id, ids), eq(invites.invited_by, SEED_INVITER)))
     await db.delete(riders).where(inArray(riders.id, ids)) // cascades to trips, events, scores, coaching, consents...
   }
   await db.delete(saccos).where(like(saccos.name, `${PREFIX} %`))
@@ -70,21 +105,51 @@ await db.insert(blackspots).values([
 const [insurer] = await db.insert(insurers).values({ name: `${PREFIX} Bima Bora Insurance` }).returning()
 
 // ---------- Riding patterns ----------
+type Week = { brakes: number; corners: number; recordedShare: number; at: keyof typeof PLACES }
 type Profile = {
   name: string
   sacco: boolean
   shift: { startHourEat: number; hours: number; rideOffsetHours?: number }
-  // per week (index 0 = earlier week): harsh events per day, and the share of the shift recorded
-  weeks: { brakes: number; corners: number; recordedShare: number; at: keyof typeof PLACES }[]
+  // w = 0 for the oldest week, last = the most recent completed week
+  week: (w: number, last: number) => Week
+  quote?: 'pending' | 'quoted'
+  shares?: boolean
 }
 const profiles: Profile[] = [
-  { name: 'Careful Wanjiru', sacco: true, shift: { startHourEat: 7, hours: 9 }, weeks: [{ brakes: 0, corners: 0, recordedShare: 1, at: 'roysambu' }, { brakes: 0, corners: 0, recordedShare: 1, at: 'roysambu' }] },
-  { name: 'Evening Kevin', sacco: true, shift: { startHourEat: 18, hours: 6 }, weeks: [{ brakes: 1, corners: 0, recordedShare: 0.95, at: 'githurai' }, { brakes: 2, corners: 0, recordedShare: 0.95, at: 'githurai' }] },
-  { name: 'Night Otieno', sacco: true, shift: { startHourEat: 18, hours: 8, rideOffsetHours: 3 }, weeks: [{ brakes: 0, corners: 1, recordedShare: 0.9, at: 'kasarani' }, { brakes: 0, corners: 1, recordedShare: 0.9, at: 'kasarani' }] },
-  { name: 'Gaming Mutua', sacco: true, shift: { startHourEat: 7, hours: 10 }, weeks: [{ brakes: 2, corners: 1, recordedShare: 1, at: 'githurai' }, { brakes: 0, corners: 0, recordedShare: 0.3, at: 'roysambu' }] },
-  { name: 'Risky Peter', sacco: true, shift: { startHourEat: 9, hours: 9 }, weeks: [{ brakes: 4, corners: 3, recordedShare: 1, at: 'githurai' }, { brakes: 5, corners: 3, recordedShare: 1, at: 'kasarani' }] },
-  { name: 'Independent Achieng', sacco: false, shift: { startHourEat: 8, hours: 8 }, weeks: [{ brakes: 0, corners: 1, recordedShare: 1, at: 'kahawa' }, { brakes: 1, corners: 0, recordedShare: 1, at: 'kahawa' }] },
+  {
+    name: `${PREFIX} Careful Wanjiru`, sacco: true, shift: { startHourEat: 7, hours: 9 }, quote: 'quoted', shares: true,
+    week: (w) => ({ brakes: 0, corners: w % 4 === 1 ? 1 : 0, recordedShare: 1, at: 'roysambu' }),
+  },
+  {
+    // Took the coaching: harsh braking at Githurai 45 falls week by week.
+    name: `${PREFIX} Evening Kevin`, sacco: true, shift: { startHourEat: 18, hours: 6 }, quote: 'pending', shares: true,
+    week: (w, last) => ({ brakes: Math.max(1, 4 - Math.floor((w * 4) / (last + 1))), corners: 0, recordedShare: 0.95, at: 'githurai' }),
+  },
+  {
+    name: `${PREFIX} Night Otieno`, sacco: true, shift: { startHourEat: 18, hours: 8, rideOffsetHours: 3 }, shares: true,
+    week: (w) => ({ brakes: w % 4 === 2 ? 1 : 0, corners: 1, recordedShare: 0.9, at: 'kasarani' }),
+  },
+  {
+    // Rides normally, then the last week records only the calm part of his shifts.
+    name: `${PREFIX} Gaming Mutua`, sacco: true, shift: { startHourEat: 7, hours: 10 }, quote: 'pending', shares: true,
+    week: (w, last) => (w < last ? { brakes: 2, corners: 1, recordedShare: 1, at: 'githurai' } : { brakes: 0, corners: 0, recordedShare: 0.3, at: 'roysambu' }),
+  },
+  {
+    name: `${PREFIX} Risky Peter`, sacco: true, shift: { startHourEat: 9, hours: 9 },
+    week: (w) => ({ brakes: 4 + (w % 2), corners: 3, recordedShare: 1, at: w % 2 ? 'kasarani' : 'githurai' }),
+  },
+  {
+    name: `${PREFIX} Independent Achieng`, sacco: false, shift: { startHourEat: 8, hours: 8 }, quote: 'pending', shares: true,
+    week: (w) => ({ brakes: w % 2, corners: (w + 1) % 2, recordedShare: 1, at: 'kahawa' }),
+  },
 ]
+if (linkEmail && linkName) {
+  // The presenter's own rider: steady improvement, shares with the insurer, holds a quote.
+  profiles.push({
+    name: linkName, sacco: true, shift: { startHourEat: 7, hours: 9 }, quote: 'quoted', shares: true,
+    week: (w) => ({ brakes: Math.max(1, 3 - Math.floor(w / 3)), corners: w % 3 === 0 ? 1 : 0, recordedShare: w < 2 ? 0.9 : 1, at: w % 2 ? 'githurai' : 'roysambu' }),
+  })
+}
 
 const calm = (): Phase[] => [
   { kind: 'speed', toKmh: 38, accelG: 0.12 },
@@ -114,30 +179,54 @@ const sharpCorner = (): Phase[] => [
 // Starts ~520 m short of a place, heading at it, so the first manoeuvre lands near it.
 const approach = (p: { lat: number; lng: number }) => ({ lat: p.lat - 0.0047 * Math.cos(Math.PI / 4), lng: p.lng - 0.0047 * Math.sin(Math.PI / 4) })
 
-// The two most recently completed weeks.
+// Completed weeks only, oldest first. The last two get six working days; older weeks four,
+// to keep the seed quick while still giving each week a score.
 const thisWeek = weekOf(Date.now())
-const weekStarts = [thisWeek.from - 14 * D, thisWeek.from - 7 * D]
+const weekStarts = Array.from({ length: WEEKS }, (_, i) => thisWeek.from - (WEEKS - i) * 7 * D)
+const daysIn = (w: number) => (w >= WEEKS - 2 ? 6 : 4)
+
+// Valid-looking Kenyan motorcycle plates: KMD? 1??X.
+const plateFor = (i: number) => `KMD${String.fromCharCode(65 + i)} ${String(101 + i * 37).slice(0, 3)}${String.fromCharCode(88 - i)}`
+
+// Retries steps that hit a dropped connection (long seeds over the internet see a few).
+const TRANSIENT = /Connection terminated|ECONNRESET|ETIMEDOUT|timeout|terminating connection|socket hang up/i
+async function retry<T>(label: string, fn: () => Promise<T>, attempts = 5): Promise<T> {
+  for (let n = 1; ; n++) {
+    try {
+      return await fn()
+    } catch (err) {
+      if (n >= attempts || !TRANSIENT.test(String((err as Error)?.message ?? err))) throw err
+      console.warn(`  retry ${n} ${label}: ${(err as Error).message}`)
+      await new Promise((r) => setTimeout(r, 2000 * n))
+    }
+  }
+}
 
 let uploads = 0
-for (const [i, p] of profiles.entries()) {
+async function seedRider(p: Profile, i: number) {
   const [rider] = await db
     .insert(riders)
     .values({
-      name: `${PREFIX} ${p.name}`,
-      phone: `+2547000000${String(i + 10)}`,
-      bike_reg: `KMDEMO ${100 + i}`,
+      name: p.name,
+      phone: `${PHONE_PREFIX}${String(i === profiles.length - 1 && linkEmail ? 99 : i + 10)}`,
+      bike_reg: plateFor(i),
       sacco_id: p.sacco ? sacco!.id : null,
       stage_id: p.sacco ? stageRows[i % stageRows.length]!.id : null,
     })
     .returning()
 
   for (const [w, weekStart] of weekStarts.entries()) {
-    const pattern = p.weeks[w]!
-    for (let day = 0; day < 6; day++) {
+    const pattern = p.week(w, WEEKS - 1)
+    for (let day = 0; day < daysIn(w); day++) {
       const shiftStart = weekStart + day * D + p.shift.startHourEat * H
       const shiftEnd = shiftStart + p.shift.hours * H
       if (p.sacco) {
-        await db.insert(shifts).values({ rider_id: rider!.id, sacco_id: sacco!.id, starts_at: new Date(shiftStart), ends_at: new Date(shiftEnd), source: 'sacco_upload' })
+        await retry('shift', () =>
+          db
+            .insert(shifts)
+            .values({ rider_id: rider!.id, sacco_id: sacco!.id, starts_at: new Date(shiftStart), ends_at: new Date(shiftEnd), source: 'sacco_upload' })
+            .onConflictDoNothing(),
+        )
       }
       // Manoeuvres first (near the pattern's place), then calm riding.
       const phases: Phase[] = [
@@ -156,39 +245,52 @@ for (const [i, p] of profiles.entries()) {
         ].join('\n'),
       )
       // seed/ keys don't fire the storage trigger; processed directly below.
-      await db.insert(upload_batches).values({ rider_id: rider!.id, object_key: key })
-      await traces.upload(key, body, { contentType: 'application/gzip' })
-      const result = await processUpload(key)
+      await retry('batch', () => db.insert(upload_batches).values({ rider_id: rider!.id, object_key: key }).onConflictDoNothing())
+      await retry('storage', () => traces.upload(key, body, { contentType: 'application/gzip' }))
+      const result = await retry('ingest', () => processUpload(key))
       if (result.status !== 'processed') console.warn('ingest', key, result)
       uploads++
     }
-    await scoreRiderWeek(rider!.id, weekStart + 3 * D)
+    await retry('score', () => scoreRiderWeek(rider!.id, weekStart + 3 * D))
+    // A coaching message every week, so the history reads like months of use.
+    await retry('coach', () => coachRider(rider!.id, weekStart + 3 * D, { force: true }))
   }
-  await coachRider(rider!.id, weekStarts[1]! + 3 * D, { force: true })
 
-  // Most riders share their score with the demo insurer; some ask for a quote.
-  if (p.name !== 'Risky Peter') await db.insert(consents).values({ rider_id: rider!.id, insurer_id: insurer!.id })
+  if (p.shares) await db.insert(consents).values({ rider_id: rider!.id, insurer_id: insurer!.id })
+  if (p.quote) {
+    const [s] = await db.select().from(rider_scores_current).where(eq(rider_scores_current.rider_id, rider!.id))
+    if (s) {
+      const quoted = p.quote === 'quoted'
+      const tier = tierOf(s.score)
+      await db.insert(quote_requests).values({
+        rider_id: rider!.id,
+        insurer_id: insurer!.id,
+        score_snapshot: { week_start: s.week_start, score: s.score, tier, coverage: s.coverage, confidence: s.confidence },
+        status: quoted ? 'quoted' : 'pending',
+        premium_ksh: quoted ? { A: 6200, B: 9100, C: 12800, D: 17400 }[tier] : null,
+        decided_by: quoted ? SEED_INVITER : null,
+        decided_at: quoted ? new Date(Date.now() - 2 * D) : null,
+        created_at: new Date(Date.now() - (quoted ? 5 : 1) * D),
+      })
+    }
+  }
+  console.log(`  ${p.name}: ${WEEKS} weeks done`)
+  return rider!
 }
 
-// Quote requests from the consented riders, with their current score snapshot.
-const demo = await db
-  .select({ id: riders.id, name: riders.name })
-  .from(riders)
-  .where(like(riders.name, `${PREFIX} %`))
-const { rider_scores_current } = await import('../src/db/schema')
-for (const r of demo) {
-  if (!/Careful|Evening|Gaming|Independent/.test(r.name)) continue
-  const [s] = await db.select().from(rider_scores_current).where(eq(rider_scores_current.rider_id, r.id))
-  if (!s) continue
-  await db.insert(quote_requests).values({
-    rider_id: r.id,
-    insurer_id: insurer!.id,
-    score_snapshot: { week_start: s.week_start, score: s.score, tier: tierOf(s.score), coverage: s.coverage, confidence: s.confidence },
-  })
+console.log(`Seeding ${profiles.length} riders × ${WEEKS} weeks…`)
+// Riders in parallel; each rider's weeks in order (gaming flags compare with the previous week).
+const seeded = await Promise.all(profiles.map((p, i) => seedRider(p, i)))
+
+if (linkEmail) {
+  // Linked to that Google account the next time it signs in (verified email only; see lib/access.ts).
+  const mine = seeded.at(-1)!
+  await db.insert(invites).values({ email: linkEmail, role: 'rider', sacco_id: sacco!.id, rider_id: mine.id, invited_by: SEED_INVITER })
+  console.log(`linked rider "${mine.name}" waits for the invited Google account`)
 }
 
-console.log(`seeded ${profiles.length} demo riders, ${uploads} ride-mode uploads, SACCO "${sacco!.name}", insurer "${insurer!.name}"`)
-for (const r of demo) {
+console.log(`seeded ${profiles.length} riders, ${uploads} ride-mode uploads, SACCO "${sacco!.name}", insurer "${insurer!.name}"`)
+for (const r of seeded) {
   const [s] = await db.select().from(rider_scores_current).where(eq(rider_scores_current.rider_id, r.id))
   console.log(`  ${r.name.padEnd(28)} score ${s?.score ?? '-'} tier ${s ? tierOf(s.score) : '-'} coverage ${s?.coverage ?? 'n/a'} confidence ${s?.confidence ?? '-'}`)
 }
