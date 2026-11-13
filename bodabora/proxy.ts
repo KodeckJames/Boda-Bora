@@ -17,9 +17,11 @@ function preferredLocale(request: NextRequest): Locale {
   return ranked.find((r) => hasLocale(r.lang))?.lang as Locale | undefined ?? defaultLocale;
 }
 
-// Pages that need a signed-in user (path after the locale). The live-scoring demo stays public.
+// Pages that need a signed-in user (path after the locale). Public: the live-scoring demo, and
+// ride mode, which only shows shifts stored on the phone (so it opens offline and can be precached);
+// uploading from it still needs sign-in.
 const PROTECTED = ["/start", "/onboarding", "/rider", "/sacco", "/insurer"];
-const PUBLIC_EXCEPTIONS = ["/rider/live"];
+const PUBLIC_EXCEPTIONS = ["/rider/live", "/rider/ride"];
 const under = (path: string, prefix: string) => path === prefix || path.startsWith(`${prefix}/`);
 const isProtectedPath = (path: string) =>
   PROTECTED.some((p) => under(path, p)) && !PUBLIC_EXCEPTIONS.some((p) => under(path, p));

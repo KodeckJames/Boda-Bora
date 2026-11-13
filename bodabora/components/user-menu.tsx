@@ -7,12 +7,13 @@ import { authClient } from "@/lib/auth/client";
 import { withLocale } from "@/lib/i18n/config";
 import { useI18n } from "@/lib/i18n/client";
 
-// Pages the service worker cached while signed in; dropped on sign-out so a shared phone
-// doesn't show the last rider's scores offline.
+// Pages the service worker cached while signed in (public/sw.js PAGES_CACHE); dropped on
+// sign-out so a shared phone doesn't show the last rider's scores offline. The public offline
+// shell (ride mode, offline page) stays cached.
 async function clearCachedPages() {
   if (!("caches" in window)) return;
   const keys = await caches.keys();
-  await Promise.all(keys.filter((k) => k.startsWith("shell-")).map((k) => caches.delete(k)));
+  await Promise.all(keys.filter((k) => k.startsWith("pages-")).map((k) => caches.delete(k)));
 }
 
 // Signed in: avatar with name, email and sign-out. Signed out: a "Sign in" link.
